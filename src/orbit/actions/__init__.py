@@ -1,0 +1,1 @@
+"""Safe, allowlisted desktop actions."""
