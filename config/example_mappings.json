@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "mappings": [
+    {"id": "focus-two-fingers", "gesture": "two_fingers", "action": "focus", "mode": "hold",
+     "params": {"dim": 35}, "enabled": true, "cooldown_ms": 500},
+    {"id": "desktop-open-palm", "gesture": "open_palm", "action": "show_desktop", "mode": "toggle",
+     "params": {}, "enabled": false, "cooldown_ms": 1500},
+    {"id": "snap-left-one-finger", "gesture": "one_finger", "action": "snap_window_left", "mode": "trigger",
+     "params": {}, "enabled": false, "cooldown_ms": 1500},
+    {"id": "reopen-tab-three", "gesture": "three_fingers", "action": "keyboard_shortcut", "mode": "trigger",
+     "params": {"keys": "ctrl+shift+t"}, "enabled": false, "cooldown_ms": 1500}
+  ]
+}
