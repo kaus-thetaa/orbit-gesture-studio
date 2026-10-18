@@ -87,6 +87,73 @@ class FaceSettings:
 
 
 @dataclass
+class MotionSettings:
+    enabled: bool = _f(True, doc="Detect movement gestures (swipes, wave, circles, custom motions)")
+    require_pose: str = _f("open_palm", doc="Static pose the hand must hold while moving ('' = any hand)")
+    pose_fraction: float = _f(0.6, 0.2, 1.0, "Share of the movement during which the pose must match")
+    start_speed: float = _f(1.5, 0.3, 10.0, "Hand-lengths/second that starts a movement")
+    stop_speed: float = _f(0.8, 0.1, 5.0, "Hand-lengths/second below which the hand counts as still")
+    gap_ms: int = _f(150, 50, 1000, "Stillness (or lost hand) that ends a movement")
+    min_duration_ms: int = _f(150, 50, 2000, "Shortest movement considered")
+    max_duration_ms: int = _f(2500, 500, 8000, "Longest movement considered")
+    min_path: float = _f(1.2, 0.3, 10.0, "Minimum distance travelled, in hand-lengths")
+    cooldown_ms: int = _f(800, 0, 5000, "Gap after a recognised motion (also suppresses the return stroke)")
+    min_confidence: float = _f(0.5, 0.2, 0.95, "Minimum confidence to accept a motion")
+    swipe_min_distance: float = _f(1.8, 0.5, 10.0, "Swipe length, in hand-lengths")
+    swipe_straightness: float = _f(0.75, 0.4, 0.99, "Net distance / path length for a swipe")
+    swipe_axis_ratio: float = _f(2.0, 1.2, 6.0, "Dominant-axis / other-axis movement for a swipe")
+    swipe_max_ms: int = _f(1200, 200, 3000, "Longest swipe")
+    wave_min_reversals: int = _f(3, 2, 10, "Left-right direction changes for a wave")
+    wave_min_swing: float = _f(0.5, 0.1, 3.0, "Smallest swing, in hand-lengths, counted for a wave")
+    circle_min_turn_deg: float = _f(300.0, 180.0, 720.0, "Total turning for a circle")
+    circle_closure: float = _f(0.45, 0.1, 1.0, "Max start-to-end gap / circle size")
+    custom_threshold_scale: float = _f(2.5, 1.0, 10.0, "Custom motion threshold = scale x typical sample spread")
+
+
+@dataclass
+class BrainSettings:
+    enabled: bool = _f(True, doc="Enable the assistant (Gemini online / Ollama offline, shared memory)")
+    prefer: str = _f("auto", doc="auto | gemini | ollama")
+    gemini_model: str = _f("gemini-3.1-flash-lite", doc="Gemini model id (names change often: `orbit brain doctor` lists yours)")
+    gemini_base_url: str = _f("https://generativelanguage.googleapis.com")
+    gemini_daily_requests: int = _f(300, 0, 1_000_000, "Your own daily request budget for Gemini (0 = unlimited)")
+    switch_at_fraction: float = _f(0.9, 0.1, 1.0, "Switch to the local model after this share of the budget")
+    ollama_host: str = _f("http://127.0.0.1:11434")
+    ollama_model: str = _f("llama3.2:3b", doc="Local model; if not installed the smallest installed one is used")
+    ollama_keep_alive: str = _f("30m", doc="How long Ollama keeps the model in memory (fast repeat answers)")
+    hedge_after_ms: int = _f(1500, 0, 20000, "If the first provider is slower than this, also ask the other (0 = off)")
+    cloud_timeout_s: float = _f(6.0, 1.0, 60.0)
+    local_timeout_s: float = _f(25.0, 2.0, 120.0)
+    max_words: int = _f(14, 1, 60, "Answers are cut to this many words")
+    max_output_tokens: int = _f(60, 16, 1024)
+    context_chars: int = _f(2400, 400, 20000, "Memory/document text sent with each question")
+    share_memory_with_cloud: bool = _f(True, doc="Send non-private remembered facts to Gemini")
+    warm_local_model: bool = _f(True, doc="Pre-load the Ollama model at startup for snappy first answers")
+    # Each: {"name": "mess_menu", "kind": "menu", "url": "https://...", "refresh_hours": 6}
+    routines: list = field(default_factory=list)
+
+
+@dataclass
+class HudSettings:
+    enabled: bool = _f(True, doc="Show the small always-on-top orb")
+    corner: str = _f("bottom-right", doc="bottom-right | bottom-left | top-right | top-left")
+    margin: int = _f(18, 0, 400)
+    orb_size: int = _f(26, 14, 80)
+    idle_opacity: float = _f(0.45, 0.1, 1.0)
+    answer_seconds: float = _f(7.0, 1.0, 60.0)
+    ask_hotkey: str = _f("<ctrl>+<alt>+<space>", doc="Global hotkey to open the ask box (X11 only)")
+
+
+@dataclass
+class LipsSettings:
+    enabled: bool = _f(True, doc="Finger-on-lips gesture (needs the face model; disabled automatically if missing)")
+    max_distance: float = _f(1.0, 0.3, 3.0, "Fingertip-to-mouth distance, in mouth-widths, that still counts")
+    min_confidence: float = _f(0.5, 0.2, 0.99)
+    check_interval_ms: int = _f(70, 20, 500, "Minimum gap between face checks (saves CPU)")
+    face_cache_ms: int = _f(400, 50, 2000, "Reuse the last mouth position for this long")
+
+
+@dataclass
 class UISettings:
     show_landmarks: bool = _f(True)
     preview_fps: int = _f(20, 5, 60)
@@ -99,6 +166,10 @@ class Settings:
     safety: SafetySettings = field(default_factory=SafetySettings)
     gaze: GazeSettings = field(default_factory=GazeSettings)
     face: FaceSettings = field(default_factory=FaceSettings)
+    motion: MotionSettings = field(default_factory=MotionSettings)
+    brain: BrainSettings = field(default_factory=BrainSettings)
+    hud: HudSettings = field(default_factory=HudSettings)
+    lips: LipsSettings = field(default_factory=LipsSettings)
     ui: UISettings = field(default_factory=UISettings)
 
     # ------------------------------------------------------------------ io

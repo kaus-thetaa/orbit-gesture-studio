@@ -81,6 +81,19 @@ class FaceModule:
             shapes = {c.category_name: float(c.score) for c in res.face_blendshapes[0]}
         return FaceObservation(gaze_ratio=iris_ratio(xy), blendshapes=shapes)
 
+    def landmarks_px(self, frame_bgr: np.ndarray, timestamp_ms: int) -> Optional[np.ndarray]:
+        """(478, 2) face landmarks in pixel coordinates of this frame, or None."""
+        import cv2
+
+        ts = max(int(timestamp_ms), self._last_ts + 1)
+        self._last_ts = ts
+        h, w = frame_bgr.shape[:2]
+        rgb = np.ascontiguousarray(cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB))
+        res = self._lm.detect_for_video(self._mp.Image(image_format=self._mp.ImageFormat.SRGB, data=rgb), ts)
+        if not res.face_landmarks:
+            return None
+        return np.array([[p.x * w, p.y * h] for p in res.face_landmarks[0]])
+
     def close(self) -> None:
         try:
             self._lm.close()

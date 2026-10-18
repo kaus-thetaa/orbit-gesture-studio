@@ -55,6 +55,7 @@ class MappingDialog(QDialog):
         lay.addWidget(buttons)
 
         self.action.currentTextChanged.connect(self._action_changed)
+        self.gesture.currentTextChanged.connect(lambda _t: self._refresh_modes())
         if mapping:
             self.gesture.setCurrentText(mapping.gesture)
             self.action.setCurrentText(mapping.action)
@@ -67,14 +68,24 @@ class MappingDialog(QDialog):
             self.mode.setCurrentText(mapping.mode)
             self._load_params(mapping.params)
 
+    def _refresh_modes(self) -> None:
+        action = self.rt.actions.get(self.action.currentText())
+        modes = list(action.modes)
+        if self.gesture.currentText().strip() in set(self.rt.motion_names()):
+            modes = [m for m in modes if m != "hold"]
+        keep = self.mode.currentText()
+        self.mode.clear()
+        self.mode.addItems(modes)
+        if keep in modes:
+            self.mode.setCurrentText(keep)
+
     # ---------------------------------------------------------------- dynamic form
     def _action_changed(self, name: str) -> None:
         action = self.rt.actions.get(name)
-        self.mode.clear()
-        self.mode.addItems(list(action.modes))
+        self._refresh_modes()
         self.help.setText(action.description + (
             "  Modes: hold = active while the gesture is held; toggle = each confirmed gesture flips on/off; "
-            "trigger = fire once."))
+            "trigger = fire once. Motion gestures (swipes, wave, circles, recorded motions) are momentary: trigger or toggle only."))
         while self.param_form.rowCount():
             self.param_form.removeRow(0)
         self.param_widgets.clear()

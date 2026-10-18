@@ -52,6 +52,12 @@ First run `python -m orbit doctor` and keep the output handy.
 See [CALIBRATION.md](CALIBRATION.md). Quick checks: even front lighting, hand fully in frame, palm facing the
 camera, 40-80 cm away.
 
+## Motion gestures
+
+See [MOTION_GESTURES.md](MOTION_GESTURES.md#tuning-tuning-tab-motion-in-settingsjson). Quick checks: run
+`python -m orbit run --preview` and perform the motion with an **open palm** (the default pose requirement); the
+console prints `motion: swipe_right (0.87)` or `motion ignored: <reason> [path, straightness, ...]`.
+
 ## Reset
 
 Delete (or rename) files in the config dir shown by `doctor`. Corrupt files are auto-renamed to `*.corrupt`

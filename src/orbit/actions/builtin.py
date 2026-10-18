@@ -93,6 +93,43 @@ class ShowDesktopAction(_PlatformShortcut):
             self._shown = False
 
 
+class MuteAction(Action):
+    """Mute system audio. Remembers whether it was already muted so releasing never un-mutes
+    something the user muted themselves."""
+
+    name = "mute_audio"
+    description = "Mute the computer's audio (hold: muted while the gesture is held; toggle: flip each time)."
+    modes = ("hold", "toggle", "trigger")
+    stateful = True
+
+    def __init__(self) -> None:
+        self._we_muted = False
+        self._lock = threading.Lock()
+
+    def _audio(self, ctx):
+        if ctx.audio is None:
+            raise ActionUnsupported("no audio backend configured")
+        return ctx.audio
+
+    def activate(self, ctx, params):
+        audio = self._audio(ctx)
+        with self._lock:
+            if self._we_muted:
+                return
+            if audio.get_mute():
+                return                      # already muted by the user: leave it alone on release
+            audio.set_mute(True)
+            self._we_muted = True
+
+    def deactivate(self, ctx, params):
+        audio = self._audio(ctx)
+        with self._lock:
+            if not self._we_muted:
+                return
+            audio.set_mute(False)
+            self._we_muted = False
+
+
 class LogMessageAction(Action):
     """Harmless action for testing mappings without touching the desktop."""
 
@@ -117,5 +154,6 @@ def build_default_registry() -> ActionRegistry:
     reg.register(SnapAction("snap_window_right", "snap_right", "Snap the active window to the right half.", ("trigger",)))
     reg.register(ShowDesktopAction())
     reg.register(SnapAction("window_overview", "window_overview", "Open the OS window overview / task view.", ("trigger",)))
+    reg.register(MuteAction())
     reg.register(LogMessageAction())
     return reg

@@ -72,6 +72,12 @@ DEFAULT_MAPPINGS: List[dict] = [
     # Examples that ship DISABLED - enable them in Gesture Studio once you trust the pipeline.
     {"id": "desktop-open-palm", "gesture": "open_palm", "action": "show_desktop", "mode": "toggle",
      "params": {}, "enabled": False, "cooldown_ms": 1500},
+    {"id": "snap-left-swipe-left", "gesture": "swipe_left", "action": "snap_window_left", "mode": "trigger",
+     "params": {}, "enabled": False, "cooldown_ms": 500},
+    {"id": "snap-right-swipe-right", "gesture": "swipe_right", "action": "snap_window_right", "mode": "trigger",
+     "params": {}, "enabled": False, "cooldown_ms": 500},
+    {"id": "mute-finger-on-lips", "gesture": "finger_on_lips", "action": "mute_audio", "mode": "hold",
+     "params": {}, "enabled": False, "cooldown_ms": 300},
     {"id": "log-fist", "gesture": "fist", "action": "log_message", "mode": "hold",
      "params": {"message": "fist held"}, "enabled": False, "cooldown_ms": 300},
 ]
@@ -79,8 +85,10 @@ DEFAULT_MAPPINGS: List[dict] = [
 
 class MappingStore:
     def __init__(self, registry: ActionRegistry, path: Optional[Path] = None,
-                 denylist: Callable[[], Iterable[str]] = lambda: ()) -> None:
+                 denylist: Callable[[], Iterable[str]] = lambda: (),
+                 motion_names: Callable[[], Iterable[str]] = lambda: ()) -> None:
         self.registry = registry
+        self._motion_names = motion_names
         self.path = Path(path) if path else paths.mappings_path()
         self._denylist = denylist
         self._lock = threading.RLock()
@@ -97,6 +105,8 @@ class MappingStore:
             raise ConfigError("enabled must be true/false")
         if isinstance(m.cooldown_ms, bool) or not isinstance(m.cooldown_ms, int) or not (0 <= m.cooldown_ms <= 10_000):
             raise ConfigError("cooldown_ms must be a whole number between 0 and 10000")
+        if m.mode == "hold" and m.gesture in set(self._motion_names()):
+            raise ConfigError("Motion gestures are momentary: use mode 'trigger' or 'toggle', not 'hold'")
         m.params = self.registry.validate(m.action, m.params, m.mode, self._denylist())
         pool = self._mappings if existing is None else existing
         for other in pool:

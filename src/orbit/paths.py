@@ -47,3 +47,7 @@ def mappings_path() -> Path:
 
 def custom_gestures_path() -> Path:
     return config_dir() / "custom_gestures.json"
+
+
+def custom_motions_path() -> Path:
+    return config_dir() / "custom_motions.json"

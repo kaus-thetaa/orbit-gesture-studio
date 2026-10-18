@@ -22,10 +22,12 @@ import numpy as np
 from ..errors import ConfigError
 from ..settings import RecognitionSettings
 from .features import finger_states, normalize_landmarks
+from .motion import BUILTIN_MOTIONS
 from .types import GesturePrediction, HandObservation
 
 NAME_RE = re.compile(r"^[a-z][a-z0-9_]{1,31}$")
 RESERVED_PREFIXES = ("gaze_", "face_")
+CONTEXTUAL_GESTURES = ("finger_on_lips",)
 
 # pattern values: True = must be extended, False = must be curled, None = don't care
 BUILTIN_PATTERNS: Dict[str, Dict[str, Optional[bool]]] = {
@@ -87,7 +89,7 @@ class CustomGesture:
     def validate(self) -> None:
         if not NAME_RE.match(self.name):
             raise ConfigError("Gesture name must be 2-32 chars: lowercase letters, digits, underscore; start with a letter")
-        if self.name in BUILTIN_PATTERNS or self.name.startswith(RESERVED_PREFIXES):
+        if self.name in BUILTIN_PATTERNS or self.name in BUILTIN_MOTIONS or self.name in CONTEXTUAL_GESTURES or self.name.startswith(RESERVED_PREFIXES):
             raise ConfigError(f"{self.name!r} is reserved")
         if self.samples.ndim != 2 or self.samples.shape[1] != 42:
             raise ConfigError("Invalid sample shape")

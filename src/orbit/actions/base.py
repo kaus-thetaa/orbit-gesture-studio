@@ -28,6 +28,7 @@ class ActionContext:
     focus: Any               # FocusController
     platform: Any            # PlatformAdapter
     denylist: Tuple[str, ...] = ()
+    audio: Any = None        # AudioBackend
 
 
 class Action:

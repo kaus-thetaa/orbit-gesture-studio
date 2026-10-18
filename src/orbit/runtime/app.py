@@ -10,6 +10,7 @@ from typing import Any, Callable, List, Optional
 from ..actions.base import ActionContext
 from ..actions.builtin import build_default_registry
 from ..actions.focus import FocusController
+from ..actions.audio import default_audio_backend
 from ..actions.keyboard import PynputKeyboard
 from ..actions.platform import detect_platform
 from ..dispatcher import ActionDispatcher, ActionRequest, ActionResult
@@ -18,7 +19,10 @@ from ..mapping import MappingStore
 from ..safety import HotkeyManager, SafetyController
 from ..settings import Settings
 from ..vision.custom_store import CustomGestureStore
+from ..vision.motion import BUILTIN_MOTIONS, MotionEngine
+from ..vision.motion_store import MotionStore
 from ..vision.face import FaceSignalHub
+from ..vision.lips import MouthTracker
 from ..vision.gestures import CustomGestureClassifier, FingerPatternRecognizer, GestureRegistry
 from ..vision.stabilizer import GestureStabilizer
 from .camera import CameraSource
@@ -29,7 +33,7 @@ log = logging.getLogger(__name__)
 
 
 class OrbitRuntime:
-    def __init__(self, settings: Optional[Settings] = None, keyboard: Any = None) -> None:
+    def __init__(self, settings: Optional[Settings] = None, keyboard: Any = None, audio: Any = None) -> None:
         self.settings = settings or Settings.load()
         s = self.settings
         self.warnings: List[str] = []
@@ -38,12 +42,15 @@ class OrbitRuntime:
         self.actions = build_default_registry()
         self.platform = detect_platform(s.safety.platform_shortcuts)
         self.ctx = ActionContext(keyboard or PynputKeyboard(), self.focus, self.platform,
-                                 tuple(s.safety.shortcut_denylist))
+                                 tuple(s.safety.shortcut_denylist), audio or default_audio_backend())
         self.safety = SafetyController(armed=s.safety.start_armed)
         if s.safety.start_armed:
             log.warning("start_armed is true: actions are live from startup")
         self.dispatcher = ActionDispatcher(self.actions, self.ctx, self.safety, on_result=self._on_result)
-        self.store = MappingStore(self.actions, denylist=lambda: self.settings.safety.shortcut_denylist)
+        self.motion = MotionEngine(s.motion)
+        self.motion_store = MotionStore()
+        self.store = MappingStore(self.actions, denylist=lambda: self.settings.safety.shortcut_denylist,
+                                  motion_names=self.motion_names)
         self.store.load()
         self.warnings += self.store.load_errors
         self.mapping_engine = MappingEngine(self.store, self.dispatcher, self.safety)
@@ -55,6 +62,7 @@ class OrbitRuntime:
         self.gestures.register(self.builtin_rec)
         self.gestures.register(self.custom_clf)
         self.reload_custom_gestures()
+        self.reload_custom_motions()
 
         self.camera = CameraSource(s.camera, on_status=self._on_camera_status)
         self.stabilizer = GestureStabilizer(s.recognition)
@@ -62,6 +70,8 @@ class OrbitRuntime:
         self.tracker: Any = None
         self.face_module: Any = None
         self.pipeline: Optional[Pipeline] = None
+        self.lips: Optional[MouthTracker] = None
+        self._brain: Any = None
         self.hotkeys: Optional[HotkeyManager] = None
         self._timers: List[threading.Timer] = []
 
@@ -71,6 +81,7 @@ class OrbitRuntime:
         self.on_safety: Optional[Callable[[bool, str], None]] = None
         self.on_camera_status: Optional[Callable[[str], None]] = None
         self.on_activity: Optional[Callable[[list, list], None]] = None
+        self.on_ask_hotkey: Optional[Callable[[], None]] = None
 
         self.safety.add_listener(self._on_safety_change)
 
@@ -80,16 +91,19 @@ class OrbitRuntime:
         from ..vision.hand_tracker import HandTracker
 
         self.tracker = HandTracker(self.settings.recognition)
-        if self.face_hub.wants_face:
+        if self.face_hub.wants_face or self.settings.lips.enabled:
             try:
                 from ..vision.face import FaceModule
                 self.face_module = FaceModule()
-            except Exception as exc:  # optional feature must never block the core app
-                msg = f"Gaze/face features disabled: {exc}"
+                if self.settings.lips.enabled:
+                    self.lips = MouthTracker(self.settings.lips, self.face_module.landmarks_px)
+            except Exception as exc:  # optional features must never block the core app
+                msg = f"Gaze/face/lips features disabled: {exc}"
                 log.error(msg)
                 self.warnings.append(msg)
                 self.settings.gaze.enabled = False
                 self.settings.face.enabled = False
+                self.settings.lips.enabled = False
                 self.face_hub.rebuild()
         if sys.platform.startswith("linux") and os.environ.get("XDG_SESSION_TYPE") == "wayland":
             msg = ("Wayland session detected: synthetic key events and global hotkeys are blocked, so keyboard/snap/"
@@ -98,18 +112,23 @@ class OrbitRuntime:
             self.warnings.append(msg)
         self.pipeline = Pipeline(
             self.settings, self.camera, self.tracker, self.gestures, self.stabilizer, self.mapping_engine,
-            face_module=self.face_module, face_hub=self.face_hub,
+            face_module=self.face_module, face_hub=self.face_hub, motion=self.motion, lips=self.lips,
             on_report=lambda r: self.on_report and self.on_report(r),
             on_activity=lambda e, d: self.on_activity and self.on_activity(e, d),
         )
         self.dispatcher.start()
+        if self.settings.brain.enabled:
+            self.brain.start()
         self.camera.start()
         self.pipeline.start()
         if self.settings.safety.enable_hotkeys:
-            self.hotkeys = HotkeyManager({
+            bindings = {
                 self.settings.safety.emergency_hotkey: lambda: self.safety.emergency_stop("emergency hotkey"),
                 self.settings.safety.arm_hotkey: lambda: self.safety.toggle("arm hotkey"),
-            })
+            }
+            if self.on_ask_hotkey and self.settings.hud.ask_hotkey:
+                bindings[self.settings.hud.ask_hotkey] = lambda: self.on_ask_hotkey and self.on_ask_hotkey()
+            self.hotkeys = HotkeyManager(bindings)
             if not self.hotkeys.start():
                 self.warnings.append(f"Global hotkeys unavailable ({self.hotkeys.error}); use the on-screen buttons.")
 
@@ -124,17 +143,33 @@ class OrbitRuntime:
         self.dispatcher.stop()
         if self.hotkeys:
             self.hotkeys.stop()
+        if self._brain is not None:
+            self._brain.stop()
         for closable in (self.tracker, self.face_module):
             if closable is not None:
                 closable.close()
 
     # ------------------------------------------------------------------ helpers
+    @property
+    def brain(self):
+        """The assistant, created on first use (keeps tests and headless gesture-only runs light)."""
+        if self._brain is None:
+            from ..brain.core import Brain
+            self._brain = Brain(self.settings)
+        return self._brain
+
     def reload_custom_gestures(self) -> None:
         self.custom_clf.set_gestures(self.custom_store.load())
 
+    def reload_custom_motions(self) -> None:
+        self.motion.custom.set_motions(self.motion_store.load())
+
+    def motion_names(self) -> List[str]:
+        return list(BUILTIN_MOTIONS) + self.motion.custom.names()
+
     def known_gestures(self) -> List[str]:
-        names = list(self.builtin_rec.names()) + self.custom_clf.names()
-        names += ["gaze_left", "gaze_right"]
+        names = list(self.builtin_rec.names()) + self.custom_clf.names() + self.motion_names()
+        names += ["finger_on_lips", "gaze_left", "gaze_right"]
         names += [f"face_{sig.get('name')}" for sig in self.settings.face.signals if isinstance(sig, dict) and sig.get("name")]
         return names
 

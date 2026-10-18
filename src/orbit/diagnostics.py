@@ -43,6 +43,8 @@ def collect() -> List[str]:
     lines = [
         f"Python      : {sys.version.split()[0]} ({platform.python_implementation()}, {platform.architecture()[0]})",
         f"Platform    : {platform.platform()}",
+        f"Python exe  : {sys.executable}",
+        f"In a venv   : {'yes' if sys.prefix != getattr(sys, 'base_prefix', sys.prefix) else 'NO - create one: python3 -m venv .venv && source .venv/bin/activate'}",
         f"Config dir  : {paths.config_dir()}",
         "Packages    :",
     ]

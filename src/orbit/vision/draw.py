@@ -26,3 +26,11 @@ def draw_hand(frame: np.ndarray, hand: HandObservation, ok: bool = True) -> None
 def draw_label(frame: np.ndarray, text: str, org=(10, 28), color=(255, 255, 255)) -> None:
     cv2.putText(frame, text, org, cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 4, cv2.LINE_AA)
     cv2.putText(frame, text, org, cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2, cv2.LINE_AA)
+
+
+def draw_trail(frame: np.ndarray, pts, color=(255, 200, 0)) -> None:
+    if len(pts) < 2:
+        return
+    arr = np.array(pts, dtype=np.int32).reshape(-1, 1, 2)
+    cv2.polylines(frame, [arr], False, color, 3, cv2.LINE_AA)
+    cv2.circle(frame, tuple(arr[-1, 0]), 6, color, -1, cv2.LINE_AA)

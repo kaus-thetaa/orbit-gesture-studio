@@ -46,3 +46,15 @@ class FakeCamera:
 
     def latest(self):
         return None if self.frame is None else (1, self.frame)
+
+
+class FakeAudio:
+    def __init__(self, muted=False):
+        self.muted, self.log = muted, []
+
+    def get_mute(self):
+        return self.muted
+
+    def set_mute(self, v):
+        self.log.append(v)
+        self.muted = v

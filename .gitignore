@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Secrets / local config (ORBIT stores user config OUTSIDE the repo, but be safe)
+.env
+.env.*
+*.local.json
+orbit_home/
+secrets.json
+*.secrets
+
+# Model files are downloaded on first run, never committed
+*.task
+models/
+
+# Personal media - never commit recordings or screenshots of yourself by accident
+*.mp4
+*.avi
+*.mov
+*.mkv
+recordings/
+samples/
+captures/
+# (demo GIFs for the README go in docs/media/ and are explicitly allowed below)
+!docs/media/
+!docs/media/*.gif
+!docs/media/*.png
+
+# Logs
+*.log
+logs/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

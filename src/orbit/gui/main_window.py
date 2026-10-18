@@ -15,12 +15,16 @@ from ..errors import ConfigError
 from ..logging_setup import ring
 from .focus_overlay import FocusOverlayManager
 from .mapping_dialog import MappingDialog
+from .motion_recorder_dialog import MotionRecorderDialog
 from .recorder_dialog import RecorderDialog
 
 TUNABLE = [
     ("recognition", "confirm_frames"), ("recognition", "release_frames"), ("recognition", "min_gesture_confidence"),
     ("recognition", "extension_ratio"), ("recognition", "straight_angle_deg"), ("recognition", "thumb_ratio"),
     ("recognition", "min_hand_size"), ("recognition", "custom_distance_scale"),
+    ("motion", "start_speed"), ("motion", "stop_speed"), ("motion", "swipe_min_distance"),
+    ("motion", "swipe_straightness"), ("motion", "cooldown_ms"), ("motion", "min_confidence"),
+    ("motion", "pose_fraction"), ("motion", "custom_threshold_scale"),
 ]
 
 PILL_OFF = "background:#7a4b00;color:white;padding:6px 12px;border-radius:12px;font-weight:600;"
@@ -89,9 +93,12 @@ class MainWindow(QMainWindow):
         self.video.setStyleSheet("background:#111;color:#aaa;")
         self.cam_lbl, self.fps_lbl, self.hand_lbl = QLabel("-"), QLabel("-"), QLabel("-")
         self.pred_lbl, self.stable_lbl, self.active_lbl = QLabel("-"), QLabel("-"), QLabel("-")
+        self.motion_state_lbl, self.motion_lbl = QLabel("-"), QLabel("-")
+        self.motion_lbl.setWordWrap(True)
         form = QFormLayout()
         for name, lbl in (("Camera", self.cam_lbl), ("FPS / latency", self.fps_lbl), ("Hand", self.hand_lbl),
                           ("Raw gesture", self.pred_lbl), ("Confirmed gesture", self.stable_lbl),
+                          ("Motion", self.motion_state_lbl), ("Last motion", self.motion_lbl),
                           ("Active mappings", self.active_lbl)):
             form.addRow(name, lbl)
         self.events = QListWidget()
@@ -115,7 +122,9 @@ class MainWindow(QMainWindow):
         self.table.itemChanged.connect(self._toggle_enabled)
         self.table.itemDoubleClicked.connect(lambda _i: self._edit())
         add, edit, delete = QPushButton("Add mapping"), QPushButton("Edit"), QPushButton("Delete")
-        test, rec = QPushButton("Test action now (3 s)"), QPushButton("Record new gesture...")
+        test, rec = QPushButton("Test action now (3 s)"), QPushButton("Record static gesture...")
+        rec_motion = QPushButton("Record motion gesture...")
+        rec_motion.clicked.connect(self._record_motion)
         add.clicked.connect(self._add)
         edit.clicked.connect(self._edit)
         delete.clicked.connect(self._delete)
@@ -126,6 +135,7 @@ class MainWindow(QMainWindow):
             row.addWidget(b)
         row.addStretch()
         row.addWidget(rec)
+        row.addWidget(rec_motion)
         info = QLabel("Mappings are saved automatically. Tick/untick 'On' to enable/disable. The Live tab "
                       "(while disarmed) lets you test gestures without running any action.")
         info.setWordWrap(True)
@@ -138,18 +148,24 @@ class MainWindow(QMainWindow):
 
     def _custom_tab(self) -> QWidget:
         w = QWidget()
-        self.custom_list = QListWidget()
-        rec, delete = QPushButton("Record new gesture..."), QPushButton("Delete selected")
+        self.custom_list, self.motion_list = QListWidget(), QListWidget()
+        rec, delete = QPushButton("Record static gesture..."), QPushButton("Delete selected")
+        rec_m, delete_m = QPushButton("Record motion gesture..."), QPushButton("Delete selected")
         rec.clicked.connect(self._record)
         delete.clicked.connect(self._delete_custom)
+        rec_m.clicked.connect(self._record_motion)
+        delete_m.clicked.connect(self._delete_motion)
         lay = QVBoxLayout(w)
-        lay.addWidget(QLabel("Custom static-pose gestures (stored as landmark numbers only, no images)"))
+        lay.addWidget(QLabel("Static poses (stored as landmark numbers only, no images)"))
         lay.addWidget(self.custom_list)
         row = QHBoxLayout()
-        row.addWidget(rec)
-        row.addWidget(delete)
-        row.addStretch()
+        row.addWidget(rec); row.addWidget(delete); row.addStretch()
         lay.addLayout(row)
+        lay.addWidget(QLabel("Motion gestures (stored as trajectory shapes only). Built-ins: swipe_left/right/up/down, wave, circle_cw/ccw"))
+        lay.addWidget(self.motion_list)
+        row2 = QHBoxLayout()
+        row2.addWidget(rec_m); row2.addWidget(delete_m); row2.addStretch()
+        lay.addLayout(row2)
         return w
 
     def _tuning_tab(self) -> QWidget:
@@ -171,7 +187,7 @@ class MainWindow(QMainWindow):
             spin.setValue(val)
             spin.setToolTip(f.metadata.get("doc", ""))
             spin.valueChanged.connect(lambda v, o=obj, n=name: setattr(o, n, v))
-            form.addRow(f"{name}", spin)
+            form.addRow(name if section == "recognition" else f"{section}.{name}", spin)
         cam = QSpinBox()
         cam.setRange(0, 10)
         cam.setValue(self.rt.settings.camera.index)
@@ -221,7 +237,20 @@ class MainWindow(QMainWindow):
         self.pred_lbl.setText(f"{rep.prediction.name} ({rep.prediction.confidence:.2f})" if rep.prediction else "-")
         self.stable_lbl.setText(rep.stable_gesture or "-")
         self.active_lbl.setText(", ".join(self.rt.mapping_engine.active_ids()) or "-")
+        self.motion_state_lbl.setText("tracking a movement..." if rep.motion_active else "idle")
+        if rep.motion is not None:
+            r = rep.motion
+            if r.prediction:
+                self.motion_lbl.setText(f"{r.prediction.name} ({r.prediction.confidence:.2f})")
+            else:
+                f = r.features
+                detail = (f"path {f.get('path', 0):.1f} hl, straight {f.get('straight', 0):.2f}, "
+                          f"reversals {f.get('reversals', 0)}, turn {f.get('turn', 0):.0f} deg") if f else ""
+                self.motion_lbl.setText(f"none: {r.reason}  [{detail}]")
+                self._event(f"  motion ignored: {r.reason}")
         for ev in rep.events:
+            if ev.source == "motion" and ev.kind == "released":
+                continue
             self._event(f"{ev.kind.upper()} {ev.name}")
         for d in rep.decisions:
             note = "" if d.executed else f"  [not executed: {d.reason}]"
@@ -314,6 +343,9 @@ class MainWindow(QMainWindow):
         self.custom_list.clear()
         for g in self.rt.custom_store.gestures:
             self.custom_list.addItem(f"{g.name}  ({len(g.samples)} samples)")
+        self.motion_list.clear()
+        for m in self.rt.motion_store.motions:
+            self.motion_list.addItem(f"{m.name}  ({len(m.samples)} examples, pose: {m.pose or 'any'})")
 
     def _record(self) -> None:
         dlg = RecorderDialog(self, self.rt, self.bridge)
@@ -322,6 +354,26 @@ class MainWindow(QMainWindow):
             if QMessageBox.question(self, "Assign an action?",
                                     f"Gesture '{dlg.saved_name}' saved. Assign an action to it now?") == QMessageBox.StandardButton.Yes:
                 self._add(dlg.saved_name)
+
+    def _record_motion(self) -> None:
+        dlg = MotionRecorderDialog(self, self.rt, self.bridge)
+        if dlg.exec() and dlg.saved_name:
+            self._reload_custom()
+            if QMessageBox.question(self, "Assign an action?",
+                                    f"Motion '{dlg.saved_name}' saved. Assign an action to it now?") == QMessageBox.StandardButton.Yes:
+                self._add(dlg.saved_name)
+
+    def _delete_motion(self) -> None:
+        row = self.motion_list.currentRow()
+        if row < 0:
+            return
+        name = self.rt.motion_store.motions[row].name
+        used = [m.id for m in self.rt.store.all() if m.gesture == name]
+        msg = f"Delete custom motion '{name}'?" + (f"\nMappings using it ({', '.join(used)}) will stop firing." if used else "")
+        if QMessageBox.question(self, "Delete", msg) == QMessageBox.StandardButton.Yes:
+            self.rt.motion_store.remove(name)
+            self.rt.reload_custom_motions()
+            self._reload_custom()
 
     def _delete_custom(self) -> None:
         row = self.custom_list.currentRow()

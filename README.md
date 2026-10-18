@@ -32,10 +32,16 @@ misdetection can't do anything surprising.
 | Focus mode (click-through screen-edge vignette + status) | Implemented |
 | Actions: focus, keyboard shortcut, snap window left/right, show desktop, window overview, log message | Implemented (OS support varies - table below) |
 | Custom **static-pose** gestures: record, review/reject samples, live test, save | Implemented |
+| **Motion gestures**: built-in swipes (4 directions), wave, circles (cw/ccw) | Implemented (synthetic-tested; tune on real hands) |
+| **Finger on lips -> mute** (`finger_on_lips`, runs the face model only when a one-finger pose is seen) | Implemented (synthetic-tested; needs the face model) |
+| **Assistant**: Gemini online / Ollama offline, shared memory, one-line answers, router with failover & hedging | Implemented (tested against fake servers; not yet run against live Gemini/Ollama) |
+| **Routines**: auto-fetch the mess menu when online; instant "what's for snacks" | Implemented (HTML/text; PDF/image/login pages not supported) |
+| **Always-on-top orb** (ask box, one-line answers, status colour) | Implemented (offscreen-tested; check on your desktop) |
+| **Custom motion gestures** (record 20-30 examples; DTW matching with augmentation, live test) | Implemented (synthetic-tested) |
 | Global emergency stop + arm/disarm hotkeys, always starts disarmed | Implemented |
 | Gaze (left/right) signals with calibration + dwell | **Experimental**, off by default |
 | Face-blendshape signals (e.g. `jawOpen`) | **Experimental**, off by default |
-| Motion gestures (swipes, waves) | Planned - needs a temporal model |
+| Learned sequence model for complex motions | Planned - only if DTW proves insufficient |
 | "Restore workspace" action | Planned |
 
 ### Action support by OS
@@ -62,6 +68,8 @@ flowchart LR
         HT --> Q[Quality gate<br/>partial / too small]
         Q --> REG[Gesture registry<br/>built-in + custom kNN]
         REG --> STAB[Stabiliser<br/>confirm N frames,<br/>release hysteresis]
+        Q --> MOT[Motion engine<br/>segmenter + built-in rules<br/>+ DTW custom motions]
+        MOT --> ME
         FACE[Optional: face / gaze<br/>dwell detectors] --> ME
         STAB --> ME[Mapping engine<br/>hold / toggle / trigger,<br/>cooldown, armed?]
     end
@@ -135,8 +143,9 @@ Headless/debug: `python -m orbit run --preview` (dry run) or `--armed`.
 
 * `mode`: `hold` (active while held), `toggle` (each confirmed gesture flips state), `trigger` (once).
   Each action declares which modes it supports.
-* `gesture`: built-ins (`open_palm`, `fist`, `one_finger`, `two_fingers`, `three_fingers`), any custom gesture you
-  recorded, or experimental signals `gaze_left`, `gaze_right`, `face_<name>`.
+* `gesture`: static built-ins (`open_palm`, `fist`, `one_finger`, `two_fingers`, `three_fingers`), motion built-ins
+  (`swipe_left/right/up/down`, `wave`, `circle_cw`, `circle_ccw`), any custom static or motion gesture you recorded, or
+  experimental signals `gaze_left`, `gaze_right`, `face_<name>`. Motions accept `trigger` or `toggle` only.
 * One *enabled* mapping per gesture. Invalid entries are skipped (and reported), never executed.
 
 ## Safety & privacy
@@ -163,15 +172,23 @@ webcam or model file.
 ## Status & honesty
 
 * Verified in the development environment (Linux, Python 3.12, MediaPipe 1.1.0, PySide6 6.12): the full test
-  suite, CLI commands, and the MediaPipe Tasks API surface this code uses.
+  suite (motion gestures use synthetic trajectories), CLI commands, and the MediaPipe Tasks API surface this code uses.
+* Verified on a real webcam (Debian/Ubuntu, Wayland, dry run): live hand tracking, and clean press/release events for
+  open palm, fist, one/two/three fingers.
 * **Not yet verified on real hardware:** live webcam inference, accuracy of the default thresholds with real
   hands, real key injection on Windows, the Focus overlay rendering on real displays. Thresholds are
   starting values - calibrate them ([docs/CALIBRATION.md](docs/CALIBRATION.md)).
 * No benchmarks are published because none have been measured.
 
+## Not planned
+
+* Automating logged-in consumer chat websites (Gemini/Claude/ChatGPT) or rotating between accounts to get around
+  usage limits. Those services' terms restrict automated access and limit-evasion, and storing multiple account
+  sessions is a security risk. Use official APIs with your own keys instead.
+
 ## Limitations
 
-* Static poses only; movement-based gestures need a sequence model.
+* Motion gestures are 2D palm trajectories with ~0.25 s latency; no depth, one hand. Complex motions with few examples may need a learned sequence model.
 * Fingers pointing at the camera look short (foreshortening) and can be misread; keep the palm roughly facing
   the camera.
 * One hand at a time. Thumb state is ignored by the built-in poses on purpose.
@@ -180,12 +197,12 @@ webcam or model file.
 
 ## Roadmap
 
-Motion gestures (DTW / small sequence model) · restore-workspace action · per-app profiles · gaze
+Learned sequence model (if needed) · restore-workspace action · per-app profiles · gaze
 calibration inside the GUI · packaged installer.
 
 ## Docs
 
-[Calibration](docs/CALIBRATION.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) · [Gaze & face](docs/GAZE_AND_FACE.md)
+[Assistant](docs/ASSISTANT.md) · [Calibration](docs/CALIBRATION.md) · [Motion gestures](docs/MOTION_GESTURES.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) · [Gaze & face](docs/GAZE_AND_FACE.md)
 
 ## License
 

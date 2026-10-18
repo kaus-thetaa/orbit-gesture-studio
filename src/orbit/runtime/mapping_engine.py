@@ -51,6 +51,8 @@ class MappingEngine:
         m = self.store.for_gesture(ev.name)
         if m is None:
             return []
+        if ev.source == "motion" and m.mode == "hold":
+            return [Decision(m.id, m.gesture, m.action, "activate", False, "hold mode is not supported for motions")]
         if self.suspended:
             return [Decision(m.id, m.gesture, m.action, "activate", False, "suspended")]
         if not self.safety.armed:
