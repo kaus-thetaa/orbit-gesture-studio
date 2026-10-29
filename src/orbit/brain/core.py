@@ -9,6 +9,7 @@ from typing import Callable, List, Optional
 
 from .. import paths
 from ..settings import Settings
+from ..devtools.skill import DevSkill
 from .assistant import Answer, Assistant
 from .context import ContextStore
 from .netmon import NetMonitor
@@ -35,7 +36,16 @@ class Brain:
         self.ollama = ollama if ollama is not None else OllamaProvider(
             c.ollama_model, c.ollama_host, c.ollama_keep_alive, c.local_timeout_s)
         self.router = Router(c, self.store, self.gemini, self.ollama, self.net)
-        self.assistant = Assistant(c, self.store, self.router, now=now)
+        self.dev = DevSkill(settings.dev)
+        self.tracker = None
+        tracker_skill = None
+        if settings.tracker.enabled:
+            from pathlib import Path
+            from ..tracker.skill import TrackerSkill
+            from ..tracker.store import Tracker
+            self.tracker = Tracker(Path(settings.tracker.path).expanduser(), backup_dir=paths.config_dir() / "backups")
+            tracker_skill = TrackerSkill(self.tracker, self.router, settings.tracker.local_only_extraction, now=now)
+        self.assistant = Assistant(c, self.store, self.router, now=now, dev=self.dev, tracker=tracker_skill)
         routines, self.warnings = parse_routines(c.routines)
         self.on_event = on_event
         self.runner = RoutineRunner(self.store, self.router, now=now)

@@ -13,6 +13,7 @@ from ..settings import BrainSettings
 from .context import ContextStore
 from .providers import LLMRequest
 from .router import AllProvidersFailed, Router
+from ..devtools.skill import DevSkill
 from .skills import MenuSkill, TimeSkill
 
 log = logging.getLogger(__name__)
@@ -49,8 +50,10 @@ def shorten(text: str, max_words: int) -> str:
 
 class Assistant:
     def __init__(self, settings: BrainSettings, store: ContextStore, router: Router,
-                 now: Callable[[], datetime] = datetime.now) -> None:
+                 now: Callable[[], datetime] = datetime.now, dev: Optional[DevSkill] = None, tracker=None) -> None:
         self.s, self.store, self.router, self.now = settings, store, router, now
+        self.dev = dev
+        self.tracker = tracker
         self.menu = MenuSkill(store, lambda: self.now().date().isoformat(), now)
         self.time = TimeSkill(now)
 
@@ -65,6 +68,14 @@ class Assistant:
         cmd = self._command(text)
         if cmd is not None:
             return done(cmd, "memory")
+        if self.dev is not None:
+            dv = self.dev.handle(text)
+            if dv is not None:
+                return Answer(dv, "dev", (time.perf_counter() - t0) * 1000, self.dev.last_detail)
+        if self.tracker is not None:
+            tr = self.tracker.handle(text)
+            if tr is not None:
+                return done(tr, "tracker")
         for skill, src in ((self.time, "time"), (self.menu, "menu")):
             ans = skill.try_answer(text)
             if ans is not None:

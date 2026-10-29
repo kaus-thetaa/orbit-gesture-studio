@@ -28,6 +28,13 @@ def main(argv=None) -> int:
     rt = sub.add_parser("routine", help="routines: list | run NAME | add-menu URL")
     rt.add_argument("action", choices=["list", "run", "add-menu"])
     rt.add_argument("arg", nargs="?")
+    dev = sub.add_parser("dev", help="developer helpers: projects | status NAME | push NAME [--single] [--yes] | open NAME")
+    dev.add_argument("action", choices=["projects", "status", "push", "open"])
+    dev.add_argument("name", nargs="*")
+    dev.add_argument("--single", action="store_true", help="push: one commit instead of logical groups")
+    dev.add_argument("--yes", action="store_true", help="push: skip the confirmation question")
+    trk = sub.add_parser("tracker", help="the one spreadsheet: path | show | undo")
+    trk.add_argument("action", choices=["path", "show", "undo"])
     auto = sub.add_parser("autostart", help="start the orb at login (Linux)")
     auto.add_argument("action", choices=["enable", "disable"])
     run = sub.add_parser("run", help="headless mode: print recognised gestures; optional preview window")
@@ -86,6 +93,10 @@ def main(argv=None) -> int:
         return _cmd_memory(args)
     if cmd == "routine":
         return _cmd_routine(args)
+    if cmd == "dev":
+        return _cmd_dev(args)
+    if cmd == "tracker":
+        return _cmd_tracker(args)
     if cmd == "autostart":
         return _cmd_autostart(args.action)
     if cmd == "hud":
@@ -330,6 +341,59 @@ def _cmd_autostart(action: str) -> int:
         else:
             print("Disabled." if autostart.disable() else "Was not enabled.")
     except RuntimeError as exc:
+        print(exc, file=sys.stderr)
+        return 1
+    return 0
+
+
+def _cmd_dev(args) -> int:
+    from .devtools import gitplan, runner
+    from .devtools.projects import ProjectError, list_projects, resolve_project
+    from .errors import OrbitError
+    from .settings import Settings
+    cfg = Settings.load().dev
+    if args.action == "projects":
+        for name, path in list_projects(cfg).items():
+            print(f"{name:<28} {path}")
+        return 0
+    try:
+        project = resolve_project(" ".join(args.name), cfg)
+        if args.action == "open":
+            runner.open_in_editor(cfg.editor, project)
+            print(f"Opened {project}")
+            return 0
+        plan = gitplan.build_plan(project, cfg.max_commit_groups, single=args.single)
+        print(plan.detail())
+        if args.action == "status" or plan.blocked or plan.nothing_to_do:
+            print(plan.summary().replace(". Say yes to go", ""))
+            return 1 if plan.blocked else 0
+        if not args.yes and input("Commit and push this? [y/N] ").strip().lower() not in ("y", "yes"):
+            print("Cancelled. Nothing was changed.")
+            return 1
+        print(gitplan.execute(plan))
+        return 0
+    except (ProjectError, runner.RunnerError, OrbitError) as exc:
+        print(exc, file=sys.stderr)
+        return 1
+
+
+def _cmd_tracker(args) -> int:
+    from pathlib import Path
+    from . import paths
+    from .errors import OrbitError
+    from .settings import Settings
+    from .tracker.store import Tracker
+    s = Settings.load()
+    t = Tracker(Path(s.tracker.path).expanduser(), backup_dir=paths.config_dir() / "backups")
+    try:
+        if args.action == "path":
+            print(t.ensure())
+        elif args.action == "undo":
+            print(t.undo())
+        else:
+            for r in t.rows("interviews"):
+                print(" | ".join(str(r.get(k) or "") for k in ("Company", "Role", "Status", "Applied On", "Interview Date")))
+    except OrbitError as exc:
         print(exc, file=sys.stderr)
         return 1
     return 0

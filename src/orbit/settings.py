@@ -154,6 +154,23 @@ class LipsSettings:
 
 
 @dataclass
+class DevSettings:
+    enabled: bool = _f(True, doc="Developer helpers: open a project in VS Code, git status, commit+push with confirmation")
+    roots: list = field(default_factory=lambda: ["~/Desktop", "~/Projects"])   # where "my folder called X" is searched (direct children only)
+    projects: dict = field(default_factory=dict)                                # explicit name -> path
+    editor: str = _f("code", doc="code | codium | code-insiders")
+    max_commit_groups: int = _f(6, 1, 12, "Changes are split into at most this many logical commits")
+    confirm_seconds: int = _f(90, 10, 600, "How long a 'say yes to proceed' prompt stays valid")
+
+
+@dataclass
+class TrackerSettings:
+    enabled: bool = _f(True, doc="Single-spreadsheet tracker (interviews, ...)")
+    path: str = _f("~/Documents/orbit_tracker.xlsx", doc="THE one workbook; every table is a sheet in it")
+    local_only_extraction: bool = _f(True, doc="Free-text -> row extraction uses only the local model (nothing sent to Gemini)")
+
+
+@dataclass
 class UISettings:
     show_landmarks: bool = _f(True)
     preview_fps: int = _f(20, 5, 60)
@@ -170,6 +187,8 @@ class Settings:
     brain: BrainSettings = field(default_factory=BrainSettings)
     hud: HudSettings = field(default_factory=HudSettings)
     lips: LipsSettings = field(default_factory=LipsSettings)
+    dev: DevSettings = field(default_factory=DevSettings)
+    tracker: TrackerSettings = field(default_factory=TrackerSettings)
     ui: UISettings = field(default_factory=UISettings)
 
     # ------------------------------------------------------------------ io

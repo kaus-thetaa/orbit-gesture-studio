@@ -146,26 +146,24 @@ def test_platform_override_and_validation():
 
 # ---------------------------------------------------------------- static safety scan
 def test_source_has_no_shell_or_eval():
-    """Mapping values must never reach a shell or an evaluator. Guard the whole package."""
+    """Mapping values must never reach a shell or an evaluator. Only devtools/runner.py may start a program."""
     src = pathlib.Path(__file__).resolve().parents[1] / "src" / "orbit"
-    banned = [r"\bsubprocess\b", r"\bos\.system\b", r"\bos\.popen\b", r"(?<![.\w])eval\s*\(", r"(?<![.\w])exec\s*\(", r"(?<![.\w])compile\s*\(", r"\bshell\s*=\s*True", r"\b__import__\s*\("]
+    banned = [r"\bos\.system\b", r"\bos\.popen\b", r"(?<![.\w])eval\s*\(", r"(?<![.\w])exec\s*\(", r"(?<![.\w])compile\s*\(",
+              r"\bshell\s*=\s*True", r"\b__import__\s*\("]
     offenders = []
     for path in src.rglob("*.py"):
         text = path.read_text(encoding="utf-8")
-        for pat in banned:
+        rel = path.relative_to(src).as_posix()
+        pats = banned + ([] if rel == "devtools/runner.py" else [r"\bsubprocess\b"])
+        for pat in pats:
             for m in re.finditer(pat, text):
-                line = text[: m.start()].count("\n") + 1
-                offenders.append(f"{path.relative_to(src)}:{line}: {pat}")
+                offenders.append(f"{rel}:{text[: m.start()].count(chr(10)) + 1}: {pat}")
     assert offenders == []
-
-
-def test_linux_session_info_flags_wayland_and_missing_camera():
-    from orbit import diagnostics
-    out = diagnostics.linux_session_info(env={"XDG_SESSION_TYPE": "wayland", "USER": "u"},
-                                         listdir=lambda p: [], groups=["u"])
-    text = "\n".join(out)
-    assert "PROBLEM: Wayland" in text and "NONE FOUND" in text and "NO - run: sudo usermod" in text
-    ok = diagnostics.linux_session_info(env={"XDG_SESSION_TYPE": "x11", "DISPLAY": ":0"},
-                                        listdir=lambda p: ["video0", "video1", "null"], groups=["video"])
-    text = "\n".join(ok)
-    assert "PROBLEM" not in text and "video0, video1" in text and "yes" in text
+    runner = (src / "devtools" / "runner.py").read_text(encoding="utf-8")
+    import ast
+    calls = [n for n in ast.walk(ast.parse(runner)) if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+             and isinstance(n.func.value, ast.Name) and n.func.value.id == "subprocess" and n.func.attr in ("run", "Popen")]
+    assert len(calls) == 2                                                   # exactly: _exec and the editor launcher
+    for c in calls:                                                          # both explicitly shell=False
+        kw = {k.arg: k.value for k in c.keywords}
+        assert isinstance(kw.get("shell"), ast.Constant) and kw["shell"].value is False

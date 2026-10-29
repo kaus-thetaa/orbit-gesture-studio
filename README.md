@@ -37,6 +37,9 @@ misdetection can't do anything surprising.
 | **Assistant**: Gemini online / Ollama offline, shared memory, one-line answers, router with failover & hedging | Implemented (tested against fake servers; not yet run against live Gemini/Ollama) |
 | **Routines**: auto-fetch the mess menu when online; instant "what's for snacks" | Implemented (HTML/text; PDF/image/login pages not supported) |
 | **Always-on-top orb** (ask box, one-line answers, status colour) | Implemented (offscreen-tested; check on your desktop) |
+| **"Push my orbit folder"** by prompt: read-only plan, secret scan, logical commits, push only after "yes" (real-git tested) | Implemented |
+| **Open a project in VS Code** by prompt | Implemented (needs `code` on PATH) |
+| **One spreadsheet tracker** (interviews etc., single .xlsx, undo, natural-language add/update/query) | Implemented |
 | **Custom motion gestures** (record 20-30 examples; DTW matching with augmentation, live test) | Implemented (synthetic-tested) |
 | Global emergency stop + arm/disarm hotkeys, always starts disarmed | Implemented |
 | Gaze (left/right) signals with calibration + dwell | **Experimental**, off by default |
@@ -182,6 +185,7 @@ webcam or model file.
 
 ## Not planned
 
+* Look-to-talk (always-listening voice) and an API job queue are planned, not built yet.
 * Automating logged-in consumer chat websites (Gemini/Claude/ChatGPT) or rotating between accounts to get around
   usage limits. Those services' terms restrict automated access and limit-evasion, and storing multiple account
   sessions is a security risk. Use official APIs with your own keys instead.
@@ -202,7 +206,7 @@ calibration inside the GUI · packaged installer.
 
 ## Docs
 
-[Assistant](docs/ASSISTANT.md) · [Calibration](docs/CALIBRATION.md) · [Motion gestures](docs/MOTION_GESTURES.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) · [Gaze & face](docs/GAZE_AND_FACE.md)
+[Assistant](docs/ASSISTANT.md) · [Dev helpers & tracker](docs/DEVTOOLS_AND_TRACKER.md) · [Calibration](docs/CALIBRATION.md) · [Motion gestures](docs/MOTION_GESTURES.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) · [Gaze & face](docs/GAZE_AND_FACE.md)
 
 ## License
 
