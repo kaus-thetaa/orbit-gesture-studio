@@ -76,6 +76,32 @@ def test_ai_hub_tracks_input_and_expired_cooldown(env):
     assert "timer ended" in hub.notice.text()
 
 
+def test_ai_hub_uses_only_black_red_yellow_and_green(env):
+    import re
+
+    hub = env[2].ai_hub
+    colors = set(re.findall(r"#[0-9a-fA-F]{6}\b", hub.styleSheet()))
+
+    assert colors == {"#000000", "#ff0000", "#ffff00", "#00ff00"}
+
+
+def test_ai_hub_opens_chat_in_the_selected_chrome_profile(env, monkeypatch):
+    hub = env[2].ai_hub
+    store = hub.store
+    account = store.accounts[0]
+    store.update(account.id, "Claude", "Claude work", "https://claude.ai/chat/abc", "Profile 2")
+    card = hub.cards[0]
+    launched = []
+    monkeypatch.setattr(
+        "orbit.gui.ai_hub.open_ai_chat",
+        lambda profile, url: launched.append((profile, url)),
+    )
+
+    card._open_chat(account)
+
+    assert launched == [("Profile 2", "https://claude.ai/chat/abc")]
+
+
 def test_arm_disarm_and_live_labels(env):
     rt, bridge, win = env
     win.arm_btn.click()

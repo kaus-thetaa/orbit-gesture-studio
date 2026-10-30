@@ -10,10 +10,12 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
 from typing import Optional, Sequence
+from urllib.parse import urlparse
 
 from ..errors import OrbitError
 
@@ -28,6 +30,8 @@ ALLOWED_GIT = frozenset({"rev-parse", "status", "add", "commit", "push", "fetch"
 FORBIDDEN_FLAGS = frozenset({"-f", "--force", "--force-with-lease", "--force-if-includes", "--no-verify", "--delete", "-d", "-D",
                              "--mirror", "--prune", "--exec", "--upload-pack", "--receive-pack", "-c", "--amend", "--all", "--tags"})
 ALLOWED_EDITORS = frozenset({"code", "codium", "code-insiders"})
+AI_PROVIDER_HOSTS = frozenset({"claude.ai", "chatgpt.com", "gemini.google.com"})
+CHROME_LAUNCHERS = ("google-chrome", "google-chrome-stable", "chrome")
 
 
 def _exec(argv: Sequence[str], cwd: Optional[str], timeout: float, env: Optional[dict] = None) -> "subprocess.CompletedProcess[str]":
@@ -64,3 +68,28 @@ def open_in_editor(editor: str, path: Path) -> None:
         raise RunnerError(f"'{editor}' not found on PATH (VS Code: Command Palette -> 'Shell Command: Install code in PATH')")
     subprocess.Popen([exe, str(path)], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,   # detached
                      start_new_session=True, shell=False)
+
+
+def open_ai_chat(profile: str, url: str) -> None:
+    if not re.fullmatch(r"(?:Default|Profile [0-9]{1,3})", profile):
+        raise RunnerError("Chrome profile must be `Default` or a folder such as `Profile 1`.")
+    parsed = urlparse(url)
+    hostname = (parsed.hostname or "").lower()
+    if parsed.scheme != "https" or not hostname or not any(
+        hostname == domain or hostname.endswith("." + domain) for domain in AI_PROVIDER_HOSTS
+    ) or parsed.username or parsed.password:
+        raise RunnerError("Chat URL must be an HTTPS link on claude.ai, chatgpt.com, or gemini.google.com.")
+    exe = next((path for name in CHROME_LAUNCHERS if (path := shutil.which(name))), None)
+    if not exe:
+        raise RunnerError("Chrome was not found on PATH.")
+    try:
+        subprocess.Popen(
+            [exe, f"--profile-directory={profile}", url],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+            shell=False,
+        )
+    except OSError as exc:
+        raise RunnerError(f"Could not open chat in Chrome: {exc}") from exc

@@ -129,13 +129,21 @@ Headless/debug: `python -m orbit run --preview` (dry run) or `--armed`.
 
 ## AI Hub
 
-The **AI Hub** tab tracks multiple labeled Claude, ChatGPT, and Gemini accounts. Add cards, open provider pages
-in your default browser, set a local cooldown countdown, or mark that an account needs your input. When a timer
-ends, ORBIT notifies you to check the provider yourself.
+The **AI Hub** tab tracks multiple labeled Claude, ChatGPT, and Gemini accounts. Save a provider chat link and
+Chrome profile folder (for example `Default` or `Profile 2`) on each card, then choose **Open chat** to launch
+that link in that Chrome profile. To identify a profile folder, open `chrome://version` in the relevant Chrome
+profile and use the final folder name shown in **Profile Path**. You are responsible for signing into the
+intended provider account in that Chrome profile. You can also set a local cooldown countdown or mark that an
+account needs your input. When a timer ends, ORBIT notifies you to check the provider yourself. The AI Hub uses
+a four-color palette: black background, green available status, yellow cooldown status, and red input-needed
+status.
 
 These are **manual reminders, not live provider status**. ORBIT does not inspect browser tabs or sign-in
-sessions, store consumer-account credentials, submit prompts, automatically press Continue, or bypass usage
-limits. Account labels and reminder timestamps live in `ai_accounts.json` in ORBIT's user-data folder.
+sessions, verify which provider account is signed in, store consumer-account passwords or credentials, submit
+prompts, automatically press Continue, or bypass usage limits. Account labels, provider chat URLs, Chrome
+profile folder names, and reminder timestamps live in `ai_accounts.json` in ORBIT's user-data folder. Use a
+normal provider chat URL without embedded credentials; ORBIT only opens HTTPS links on the matching provider's
+domain.
 
 ## Mapping format
 

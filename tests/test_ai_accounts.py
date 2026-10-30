@@ -17,12 +17,46 @@ def test_store_seeds_provider_cards_without_credentials(tmp_path):
 def test_add_remove_and_persist_multiple_accounts(tmp_path):
     path = tmp_path / "ai_accounts.json"
     store = AIAccountStore(path)
-    added = store.add("Claude", "Claude work")
+    added = store.add(
+        "Claude",
+        "Claude work",
+        "https://claude.ai/chat/abc123",
+        "Profile 2",
+    )
 
     reloaded = AIAccountStore(path)
-    assert any(account.id == added.id and account.name == "Claude work" for account in reloaded.accounts)
+    persisted = next(account for account in reloaded.accounts if account.id == added.id)
+    assert persisted.name == "Claude work"
+    assert persisted.chat_url == "https://claude.ai/chat/abc123"
+    assert persisted.chrome_profile == "Profile 2"
     reloaded.remove(added.id)
     assert all(account.id != added.id for account in AIAccountStore(path).accounts)
+
+
+def test_account_update_changes_chat_and_profile(tmp_path):
+    store = AIAccountStore(tmp_path / "ai_accounts.json")
+    account = store.accounts[0]
+    store.update(account.id, "Claude", "Claude work", "https://claude.ai/chat/abc", "Profile 3")
+
+    assert account.name == "Claude work"
+    assert account.chat_url == "https://claude.ai/chat/abc"
+    assert account.chrome_profile == "Profile 3"
+
+
+@pytest.mark.parametrize(
+    "provider,name,url,profile,error",
+    [
+        ("Claude", "Work", "http://claude.ai/chat/abc", "Default", "HTTPS"),
+        ("Claude", "Work", "https://evil.example/chat/abc", "Default", "HTTPS"),
+        ("ChatGPT", "Work", "https://claude.ai/chat/abc", "Default", "ChatGPT"),
+        ("Gemini", "Work", "https://user:pass@gemini.google.com/app/abc", "Default", "credentials"),
+        ("Claude", "Work", "https://claude.ai/chat/abc", "/tmp/profile", "Chrome profile"),
+    ],
+)
+def test_rejects_unsafe_chat_links_and_profiles(tmp_path, provider, name, url, profile, error):
+    store = AIAccountStore(tmp_path / "ai_accounts.json")
+    with pytest.raises(ValueError, match=error):
+        store.add(provider, name, url, profile)
 
 
 def test_duplicate_labels_and_invalid_providers_rejected(tmp_path):

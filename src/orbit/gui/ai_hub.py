@@ -24,21 +24,42 @@ from PySide6.QtWidgets import (
 )
 
 from ..ai_accounts import AIAccount, AIAccountStore, PROVIDERS
+from ..devtools.runner import RunnerError, open_ai_chat
 
 
 class AddAccountDialog(QDialog):
-    def __init__(self, parent=None) -> None:
+    def __init__(self, parent=None, account: AIAccount | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Add AI account")
+        self.account = account
+        self.setWindowTitle("Edit AI account" if account else "Add AI account")
         self.provider = QComboBox()
         self.provider.addItems(PROVIDERS)
+        if account:
+            self.provider.setCurrentText(account.provider)
         self.name = QLineEdit()
         self.name.setPlaceholderText("e.g. Claude work")
+        self.name.setText(account.name if account else "")
+        self.chat_url = QLineEdit()
+        self.chat_url.setPlaceholderText("https://claude.ai/chat/...")
+        self.chat_url.setText(account.chat_url if account else "")
+        self.chrome_profile = QLineEdit()
+        self.chrome_profile.setPlaceholderText("Default or Profile 1")
+        self.chrome_profile.setText(account.chrome_profile if account else "Default")
+        self.hint = QLabel(
+            "In that Chrome profile, open chrome://version and copy the final folder name from Profile Path "
+            "(for example, Default or Profile 1)."
+        )
+        self.hint.setWordWrap(True)
         form = QGridLayout()
         form.addWidget(QLabel("Provider"), 0, 0)
         form.addWidget(self.provider, 0, 1)
         form.addWidget(QLabel("Account label"), 1, 0)
         form.addWidget(self.name, 1, 1)
+        form.addWidget(QLabel("Chat link (optional)"), 2, 0)
+        form.addWidget(self.chat_url, 2, 1)
+        form.addWidget(QLabel("Chrome profile folder"), 3, 0)
+        form.addWidget(self.chrome_profile, 3, 1)
+        form.addWidget(self.hint, 4, 0, 1, 2)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Ok)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
@@ -60,6 +81,8 @@ class AccountCard(QFrame):
         self.title.setObjectName("accountTitle")
         self.status = QLabel()
         self.status.setObjectName("accountStatus")
+        self.profile = QLabel(f"Chrome profile: {account.chrome_profile}")
+        self.profile.setObjectName("accountProfile")
         self.countdown = QLabel()
         self.countdown.setObjectName("accountCountdown")
 
@@ -78,6 +101,11 @@ class AccountCard(QFrame):
         available.clicked.connect(lambda: self._set_status("available"))
         open_provider = QPushButton(f"Open {account.provider}")
         open_provider.clicked.connect(self._open_provider)
+        open_chat = QPushButton("Open chat")
+        open_chat.setEnabled(bool(account.chat_url))
+        open_chat.clicked.connect(lambda: self._open_chat(account))
+        edit = QPushButton("Edit")
+        edit.clicked.connect(lambda: self._edit(account))
         remove = QPushButton("Remove")
         remove.setObjectName("removeAccount")
         remove.clicked.connect(self._remove)
@@ -91,12 +119,13 @@ class AccountCard(QFrame):
         status_row.addStretch()
         status_row.addWidget(self.countdown)
         buttons_row = QHBoxLayout()
-        for button in (need_input, available, open_provider, remove):
+        for button in (need_input, available, open_chat, open_provider, edit, remove):
             buttons_row.addWidget(button)
 
         layout = QVBoxLayout(self)
         layout.addWidget(provider)
         layout.addWidget(self.title)
+        layout.addWidget(self.profile)
         layout.addLayout(status_row)
         layout.addLayout(timer_row)
         layout.addLayout(buttons_row)
@@ -138,6 +167,28 @@ class AccountCard(QFrame):
     def _open_provider(self) -> None:
         if not QDesktopServices.openUrl(QUrl(PROVIDERS[self.account.provider])):
             QMessageBox.warning(self, "Could not open provider", "Your default browser could not be opened.")
+
+    def _open_chat(self, account: AIAccount) -> None:
+        try:
+            open_ai_chat(account.chrome_profile, account.chat_url)
+        except RunnerError as exc:
+            QMessageBox.warning(self, "Could not open chat", str(exc))
+
+    def _edit(self, account: AIAccount) -> None:
+        dialog = AddAccountDialog(self, account)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        try:
+            self.store.update(
+                account.id,
+                dialog.provider.currentText(),
+                dialog.name.text(),
+                dialog.chat_url.text(),
+                dialog.chrome_profile.text(),
+            )
+            self.on_change()
+        except ValueError as exc:
+            QMessageBox.warning(self, "Could not update account", str(exc))
 
     def _remove(self) -> None:
         answer = QMessageBox.question(self, "Remove account", f"Remove {self.account.name} from this dashboard?")
@@ -191,22 +242,22 @@ class AIHub(QWidget):
         layout.addWidget(scroll)
         self.setStyleSheet(
             """
-            QWidget { color: #e8edf5; }
-            #aiHubHeading { font-size: 24px; font-weight: 700; }
-            #aiHubSubtitle, #accountProvider { color: #aab6c8; }
-            #aiHubNotice { background: #27344a; border: 1px solid #536a8d; border-radius: 8px; padding: 10px; }
-            #aiAccountCard { background: #202a39; border: 1px solid #3a4659; border-radius: 12px; }
+            QWidget { color: #ffff00; background: #000000; }
+            #aiHubHeading { color: #00ff00; font-size: 24px; font-weight: 700; }
+            #aiHubSubtitle, #accountProvider { color: #ffff00; }
+            #aiHubNotice { color: #ffff00; background: #000000; border: 1px solid #ffff00; border-radius: 8px; padding: 10px; }
+            #aiAccountCard { color: #ffff00; background: #000000; border: 1px solid #ffff00; border-radius: 12px; }
             #accountTitle { font-size: 17px; font-weight: 600; }
             #accountStatus { font-weight: 700; padding: 4px 8px; border-radius: 8px; }
-            #accountStatus[state="available"] { color: #8ce0ad; background: #173b2a; }
-            #accountStatus[state="cooldown"] { color: #ffd27b; background: #493919; }
-            #accountStatus[state="input"] { color: #ffb6b6; background: #4a252b; }
-            #accountCountdown { color: #c3ccda; }
-            QPushButton { background: #34445b; border: 1px solid #53647e; border-radius: 6px; padding: 7px 10px; }
-            QPushButton:hover { background: #435873; }
-            QPushButton#addAccount { background: #2f6dce; border-color: #4e8deb; font-weight: 600; }
-            QPushButton#removeAccount { color: #ffc0c0; }
-            QSpinBox, QLineEdit, QComboBox { background: #18212e; border: 1px solid #46546b; border-radius: 5px; padding: 5px; }
+            #accountStatus[state="available"] { color: #00ff00; background: #000000; border: 1px solid #00ff00; }
+            #accountStatus[state="cooldown"] { color: #ffff00; background: #000000; border: 1px solid #ffff00; }
+            #accountStatus[state="input"] { color: #ff0000; background: #000000; border: 1px solid #ff0000; }
+            #accountCountdown { color: #ffff00; }
+            QPushButton { color: #ffff00; background: #000000; border: 1px solid #ffff00; border-radius: 6px; padding: 7px 10px; }
+            QPushButton:hover { color: #000000; background: #ffff00; }
+            QPushButton#addAccount { color: #000000; background: #00ff00; border-color: #00ff00; font-weight: 600; }
+            QPushButton#removeAccount { color: #ff0000; border-color: #ff0000; }
+            QSpinBox, QLineEdit, QComboBox { color: #ffff00; background: #000000; border: 1px solid #ffff00; border-radius: 5px; padding: 5px; }
             """
         )
         self._refresh_cards()
@@ -219,7 +270,12 @@ class AIHub(QWidget):
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
         try:
-            self.store.add(dialog.provider.currentText(), dialog.name.text())
+            self.store.add(
+                dialog.provider.currentText(),
+                dialog.name.text(),
+                dialog.chat_url.text(),
+                dialog.chrome_profile.text(),
+            )
         except ValueError as exc:
             QMessageBox.warning(self, "Could not add account", str(exc))
             return

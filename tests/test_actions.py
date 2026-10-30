@@ -163,7 +163,7 @@ def test_source_has_no_shell_or_eval():
     import ast
     calls = [n for n in ast.walk(ast.parse(runner)) if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
              and isinstance(n.func.value, ast.Name) and n.func.value.id == "subprocess" and n.func.attr in ("run", "Popen")]
-    assert len(calls) == 2                                                   # exactly: _exec and the editor launcher
+    assert len(calls) == 3                                                   # _exec, editor launcher, and Chrome launcher
     for c in calls:                                                          # both explicitly shell=False
         kw = {k.arg: k.value for k in c.keywords}
         assert isinstance(kw.get("shell"), ast.Constant) and kw["shell"].value is False

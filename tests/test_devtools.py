@@ -81,6 +81,39 @@ def test_runner_requires_list_argv_and_allowlisted_editor(tmp_path):
         runner.open_in_editor("code", tmp_path) if not __import__("shutil").which("code") else (_ for _ in ()).throw(runner.RunnerError("skip"))
 
 
+def test_runner_opens_supported_ai_chat_in_selected_chrome_profile(monkeypatch):
+    launched = []
+    monkeypatch.setattr(runner.shutil, "which", lambda name: "/usr/bin/google-chrome" if name == "google-chrome" else None)
+    monkeypatch.setattr(runner.subprocess, "Popen", lambda *args, **kwargs: launched.append((args, kwargs)))
+
+    runner.open_ai_chat("Profile 2", "https://claude.ai/chat/abc")
+
+    assert launched == [(
+        (["/usr/bin/google-chrome", "--profile-directory=Profile 2", "https://claude.ai/chat/abc"],),
+        {
+            "stdin": runner.subprocess.DEVNULL,
+            "stdout": runner.subprocess.DEVNULL,
+            "stderr": runner.subprocess.DEVNULL,
+            "start_new_session": True,
+            "shell": False,
+        },
+    )]
+
+
+@pytest.mark.parametrize(
+    "profile,url",
+    [
+        ("../../Default", "https://claude.ai/chat/abc"),
+        ("Default", "https://example.com/"),
+        ("Default", "javascript:alert(1)"),
+        ("Default", "https://user:pass@claude.ai/chat/abc"),
+    ],
+)
+def test_runner_rejects_unsafe_ai_chat_target(profile, url):
+    with pytest.raises(runner.RunnerError):
+        runner.open_ai_chat(profile, url)
+
+
 # ============================================================ parsing / grouping / messages
 def test_parse_status_renames_deletes_untracked():
     raw = "R  new.py\0old.py\0 M a/b.py\0?? c.txt\0 D gone.py\0A  added.py\0"
