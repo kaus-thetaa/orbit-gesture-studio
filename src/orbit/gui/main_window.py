@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
 
 from ..errors import ConfigError
 from ..logging_setup import ring
+from .ai_hub import AIHub
 from .focus_overlay import FocusOverlayManager
 from .mapping_dialog import MappingDialog
 from .motion_recorder_dialog import MotionRecorderDialog
@@ -55,6 +56,8 @@ class MainWindow(QMainWindow):
 
         tabs = QTabWidget()
         tabs.addTab(self._live_tab(), "Live")
+        self.ai_hub = AIHub()
+        tabs.addTab(self.ai_hub, "AI Hub")
         tabs.addTab(self._studio_tab(), "Gesture Studio")
         tabs.addTab(self._custom_tab(), "Custom gestures")
         tabs.addTab(self._tuning_tab(), "Tuning")
@@ -77,6 +80,9 @@ class MainWindow(QMainWindow):
         bridge.camera.connect(lambda s: self.cam_lbl.setText(s))
         bridge.focus.connect(self._on_focus)
         bridge.log_line.connect(self.log.appendPlainText)
+        self.ai_hub.notification.connect(
+            lambda name: self.statusBar().showMessage(f"{name}: cooldown timer ended; check provider availability.", 12000)
+        )
         ring.listeners.append(bridge.log_line.emit)
         self._on_safety(self.rt.safety.armed, "startup")
         self._reload_table()

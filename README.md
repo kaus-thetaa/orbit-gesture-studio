@@ -35,6 +35,7 @@ misdetection can't do anything surprising.
 | **Motion gestures**: built-in swipes (4 directions), wave, circles (cw/ccw) | Implemented (synthetic-tested; tune on real hands) |
 | **Finger on lips -> mute** (`finger_on_lips`, runs the face model only when a one-finger pose is seen) | Implemented (synthetic-tested; needs the face model) |
 | **Assistant**: Gemini online / Ollama offline, shared memory, one-line answers, router with failover & hedging | Implemented (tested against fake servers; not yet run against live Gemini/Ollama) |
+| **AI Hub**: multiple Claude, ChatGPT, and Gemini account cards, manual cooldown reminders, input-needed status | Implemented (local reminders only; no browser monitoring or automatic continuation) |
 | **Routines**: auto-fetch the mess menu when online; instant "what's for snacks" | Implemented (HTML/text; PDF/image/login pages not supported) |
 | **Always-on-top orb** (ask box, one-line answers, status colour) | Implemented (offscreen-tested; check on your desktop) |
 | **"Push my orbit folder"** by prompt: read-only plan, secret scan, logical commits, push only after "yes" (real-git tested) | Implemented |
@@ -125,6 +126,16 @@ User data (settings, mappings, custom gestures, models, logs) lives **outside th
    `Esc` in the ORBIT window disarms.
 
 Headless/debug: `python -m orbit run --preview` (dry run) or `--armed`.
+
+## AI Hub
+
+The **AI Hub** tab tracks multiple labeled Claude, ChatGPT, and Gemini accounts. Add cards, open provider pages
+in your default browser, set a local cooldown countdown, or mark that an account needs your input. When a timer
+ends, ORBIT notifies you to check the provider yourself.
+
+These are **manual reminders, not live provider status**. ORBIT does not inspect browser tabs or sign-in
+sessions, store consumer-account credentials, submit prompts, automatically press Continue, or bypass usage
+limits. Account labels and reminder timestamps live in `ai_accounts.json` in ORBIT's user-data folder.
 
 ## Mapping format
 

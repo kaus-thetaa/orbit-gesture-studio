@@ -55,6 +55,25 @@ def test_window_shows_disarmed_and_table(env):
     rt, bridge, win = env
     assert "DISARMED" in win.pill.text()
     assert win.table.rowCount() == len(rt.store.all()) >= 1
+    assert len(win.ai_hub.cards) == 3
+
+
+def test_ai_hub_tracks_input_and_expired_cooldown(env):
+    _rt, _bridge, win = env
+    hub = win.ai_hub
+    account = hub.store.accounts[0]
+    hub.cards[0]._set_status("input_needed")
+    assert account.status == "input_needed"
+    assert hub.cards[0].status.text() == "NEEDS YOUR INPUT"
+
+    hub.store.start_cooldown(account.id, 0, 1)
+    account.cooldown_until -= 61
+    notified = []
+    hub.notification.connect(notified.append)
+    hub._tick()
+    assert account.status == "available"
+    assert notified == [account.name]
+    assert "timer ended" in hub.notice.text()
 
 
 def test_arm_disarm_and_live_labels(env):
