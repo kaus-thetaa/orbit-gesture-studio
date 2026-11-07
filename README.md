@@ -1,40 +1,53 @@
+<div align="center">
+
 # ORBIT Gesture Studio
 
-ORBIT turns webcam-recognized hand gestures into desktop actions. Create gesture-to-action
-mappings in the desktop app, test them while disarmed, and arm them only when you are ready.
+### A webcam. A gesture. Your desktop.
 
-> ORBIT is purpose-built for desktop gesture control; features outside that focus are
-> intentionally out of scope.
+Map hand gestures to desktop actions, preview them live, and stay in control with
+disarmed-by-default safety.
 
-## What it does
+<img src="docs/media/orbit-gesture-studio-demo.gif" alt="Animated tour of ORBIT Gesture Studio showing the live gesture preview, mapping editor, custom gestures, tuning controls, and safety states" width="800">
 
-- Tracks one hand with MediaPipe and recognizes common static poses: open palm, fist, and
-  one, two, or three fingers.
-- Lets you record custom static gestures and map built-in or custom gestures to actions.
-- Includes experimental motion gestures: swipes, waves, circles, and user-recorded motions
-  matched with dynamic time warping. Motion recognition has synthetic test coverage but has
-  **not** been validated for accuracy with real users and webcams.
-- Provides a live preview, mapping editor, tuning controls, diagnostics, and a headless mode.
-- Runs actions through an explicit allowlist. Mappings cannot run shell commands or scripts.
+<br>
 
-Available actions include focus mode, approved keyboard shortcuts, window snapping, showing
-the desktop, the OS window overview, and a log-only test action. Support depends on the
-operating system and desktop environment:
+**Python 3.10+** · **Windows · Linux · macOS** · [MIT License](LICENSE)
 
-| Action | Windows | Linux (X11) | macOS |
-|---|---|---|---|
-| Focus mode | Yes | Yes | Yes |
-| Keyboard shortcuts | Yes | Yes | Yes, with Accessibility permission |
-| Snap window left/right | Yes | GNOME-like desktops | Not supported by default |
-| Show desktop | Yes | GNOME-like desktops | F11 by default |
-| Window overview | Yes | Not supported by default | Ctrl+Up by default |
+</div>
 
-Linux Wayland sessions restrict synthetic keyboard input and global hotkeys. Use an X11
-session for those actions. Shortcuts can be customized in `settings.json`.
+> The demo uses a simulated camera preview and synthetic hand landmarks. It shows the
+> application interface, not a real-world accuracy demonstration.
 
-## Install
+## What ORBIT does
 
-Requirements: Python 3.10 or newer and a webcam. Python 3.11 or 3.12 is recommended for
+ORBIT tracks **one hand** with MediaPipe and turns recognized gestures into actions you
+choose in Gesture Studio.
+
+- Recognizes built-in poses: open palm, fist, and one, two, or three fingers.
+- Record your own static-pose gestures and map them to actions.
+- Try experimental motion gestures: swipes, waves, circles, and custom motions.
+- Preview recognition, tune thresholds, and test mappings before using them.
+- Starts **disarmed**. No mapped action runs until you arm it.
+- Uses an explicit action allowlist; mappings cannot run shell commands or scripts.
+
+### Available actions
+
+| Action | What it does |
+|---|---|
+| Focus mode | Show a screen-edge vignette while the gesture is active |
+| Keyboard shortcut | Send an approved, configurable key combination |
+| Snap window | Move the active window left or right |
+| Show desktop | Minimize windows or restore them |
+| Window overview | Open the operating system's task/window view |
+| Log message | Safely test a gesture without controlling the desktop |
+
+Operating-system shortcut support varies. Linux synthetic input and global hotkeys work best
+in an **X11** session; Wayland restricts them. macOS keyboard actions require Accessibility
+permission. Window-management shortcuts can be customized in `settings.json`.
+
+## Get started
+
+You need **Python 3.10 or newer** and a webcam. Python 3.11 or 3.12 is recommended for
 MediaPipe wheel availability.
 
 ### Windows (PowerShell)
@@ -59,54 +72,69 @@ python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
 ```
 
-On Debian or Ubuntu, `bash scripts/setup_linux.sh` can install the required system
-libraries, create the environment, and install ORBIT.
+On Debian or Ubuntu, `bash scripts/setup_linux.sh` can install system libraries and set up
+the environment.
 
-## Run
+Launch Gesture Studio:
 
 ```bash
-python -m orbit doctor       # check the environment
-python -m orbit              # open Gesture Studio
-python -m orbit cameras      # find available camera indexes
-python -m orbit run --preview  # headless preview; press q to quit
+python -m orbit
 ```
 
-The hand model downloads from Google's MediaPipe model storage on first use. To download it
-before launching the GUI, run `python -m orbit download-models`.
+The MediaPipe hand model downloads from Google's model storage the first time ORBIT starts.
+To check your setup or download it ahead of time:
 
-ORBIT starts **disarmed**. In the Live tab, confirm that the expected gesture is recognized
-before using **Arm actions**. The emergency-stop button and `Ctrl+Alt+Shift+E` stop active
-actions; `Ctrl+Alt+Shift+G` toggles arm/disarm. Press `Esc` in the ORBIT window to disarm.
-The headless `--armed` option executes actions and should only be used deliberately.
+```bash
+python -m orbit doctor
+python -m orbit cameras
+python -m orbit download-models
+```
 
-## Mappings and data
+## Use it safely
 
-Use the Gesture Studio tab to add, edit, enable, and remove mappings. The example mappings
-are in [`config/example_mappings.json`](config/example_mappings.json). Mapping and settings
-files are validated before use; invalid mappings are reported and not executed. Run
-`python -m orbit check-config` to validate the local configuration.
+1. Keep ORBIT **disarmed** and open the **Live** tab.
+2. Position your hand in view and check the raw and confirmed gesture labels.
+3. Use **Gesture Studio** to enable or create a mapping. Test it while disarmed.
+4. Arm actions only when you are ready to use them.
 
-Settings, mappings, custom gesture samples, downloaded models, and logs are stored outside
-the repository in the platform's user-data directory. Set `ORBIT_HOME` to use another
-directory. Camera frames are processed in memory and are not saved or sent to a service.
-The one-time model download is the only network access made by the application.
+The emergency-stop button and `Ctrl+Alt+Shift+E` disarm ORBIT and release active actions.
+`Ctrl+Alt+Shift+G` toggles arm/disarm; `Esc` in the ORBIT window disarms. The headless
+`python -m orbit run --armed` mode executes actions—use it deliberately.
 
-## Development and limitations
+## Configuration and privacy
 
-Run the test suite with:
+Mappings and settings are validated before use. Invalid mappings are reported, not executed.
+See [`config/example_mappings.json`](config/example_mappings.json) for the mapping format;
+`python -m orbit check-config` validates your local configuration.
+
+Settings, mappings, custom gesture samples, downloaded models, and logs live outside the
+repository in the platform's user-data directory. Set `ORBIT_HOME` to use another directory.
+Camera frames are processed in memory and aren't saved or sent to a service. The hand model
+download is ORBIT's only network access.
+
+## Project status
+
+Static hand poses are the primary gesture-control path. Motion gestures are **experimental**:
+they have synthetic test coverage but have not been validated for accuracy with real users
+and webcams. Recognition depends on lighting, camera placement, hand orientation, and
+threshold tuning. Tests do not certify hardware behavior on a particular machine.
+
+## Guides and development
+
+- [Calibration](docs/CALIBRATION.md)
+- [Motion gestures](docs/MOTION_GESTURES.md)
+- [Troubleshooting](docs/TROUBLESHOOTING.md)
+- [Example mappings](config/example_mappings.json)
+
+Run tests with:
 
 ```bash
 python -m pytest -q
 ```
 
-Tests use synthetic landmarks and fake devices; they do not require a webcam or a downloaded
-model. They do not certify gesture accuracy or desktop-action behavior on a particular
-machine. Recognition depends on lighting, camera placement, hand orientation, and tuning.
-Only one hand is tracked, and static poses are the primary gesture-control path.
-
-See the [calibration guide](docs/CALIBRATION.md), [motion gesture guide](docs/MOTION_GESTURES.md),
-and [troubleshooting guide](docs/TROUBLESHOOTING.md) for setup and tuning details.
+Tests use synthetic landmarks and fake devices; they don't need a webcam or a downloaded
+model.
 
 ## License
 
-ORBIT Gesture Studio is distributed under the [MIT License](LICENSE).
+Distributed under the [MIT License](LICENSE).
