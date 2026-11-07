@@ -6,9 +6,7 @@
 * GestureRegistry         - runs every registered recogniser and returns the best match
   above the confidence threshold. Custom gestures win over built-ins when both match.
 
-Static poses only: a gesture that is defined by *motion* (a swipe, a wave) needs a
-temporal model (e.g. DTW or a small sequence network over landmark trajectories) and is
-not supported here.
+Motion gestures are recognised by the separate trajectory-based motion engine.
 """
 from __future__ import annotations
 
@@ -26,8 +24,6 @@ from .motion import BUILTIN_MOTIONS
 from .types import GesturePrediction, HandObservation
 
 NAME_RE = re.compile(r"^[a-z][a-z0-9_]{1,31}$")
-RESERVED_PREFIXES = ("gaze_", "face_")
-CONTEXTUAL_GESTURES = ("finger_on_lips",)
 
 # pattern values: True = must be extended, False = must be curled, None = don't care
 BUILTIN_PATTERNS: Dict[str, Dict[str, Optional[bool]]] = {
@@ -89,7 +85,7 @@ class CustomGesture:
     def validate(self) -> None:
         if not NAME_RE.match(self.name):
             raise ConfigError("Gesture name must be 2-32 chars: lowercase letters, digits, underscore; start with a letter")
-        if self.name in BUILTIN_PATTERNS or self.name in BUILTIN_MOTIONS or self.name in CONTEXTUAL_GESTURES or self.name.startswith(RESERVED_PREFIXES):
+        if self.name in BUILTIN_PATTERNS or self.name in BUILTIN_MOTIONS:
             raise ConfigError(f"{self.name!r} is reserved")
         if self.samples.ndim != 2 or self.samples.shape[1] != 42:
             raise ConfigError("Invalid sample shape")

@@ -372,7 +372,7 @@ class CustomMotion:
     def validate(self) -> None:
         if not NAME_RE.match(self.name):
             raise ConfigError("Motion name must be 2-32 chars: lowercase letters, digits, underscore; start with a letter")
-        if self.name in BUILTIN_MOTIONS or self.name.startswith(("gaze_", "face_")):
+        if self.name in BUILTIN_MOTIONS:
             raise ConfigError(f"{self.name!r} is reserved")
         if self.samples.ndim != 3 or self.samples.shape[1:] != (N_POINTS, 2):
             raise ConfigError("Invalid sample shape")

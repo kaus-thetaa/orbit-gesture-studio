@@ -13,7 +13,6 @@ from PySide6.QtWidgets import (
 
 from ..errors import ConfigError
 from ..logging_setup import ring
-from .ai_hub import AIHub
 from .focus_overlay import FocusOverlayManager
 from .mapping_dialog import MappingDialog
 from .motion_recorder_dialog import MotionRecorderDialog
@@ -56,8 +55,6 @@ class MainWindow(QMainWindow):
 
         tabs = QTabWidget()
         tabs.addTab(self._live_tab(), "Live")
-        self.ai_hub = AIHub()
-        tabs.addTab(self.ai_hub, "AI Hub")
         tabs.addTab(self._studio_tab(), "Gesture Studio")
         tabs.addTab(self._custom_tab(), "Custom gestures")
         tabs.addTab(self._tuning_tab(), "Tuning")
@@ -80,9 +77,6 @@ class MainWindow(QMainWindow):
         bridge.camera.connect(lambda s: self.cam_lbl.setText(s))
         bridge.focus.connect(self._on_focus)
         bridge.log_line.connect(self.log.appendPlainText)
-        self.ai_hub.notification.connect(
-            lambda name: self.statusBar().showMessage(f"{name}: cooldown timer ended; check provider availability.", 12000)
-        )
         ring.listeners.append(bridge.log_line.emit)
         self._on_safety(self.rt.safety.armed, "startup")
         self._reload_table()
@@ -104,7 +98,7 @@ class MainWindow(QMainWindow):
         form = QFormLayout()
         for name, lbl in (("Camera", self.cam_lbl), ("FPS / latency", self.fps_lbl), ("Hand", self.hand_lbl),
                           ("Raw gesture", self.pred_lbl), ("Confirmed gesture", self.stable_lbl),
-                          ("Motion", self.motion_state_lbl), ("Last motion", self.motion_lbl),
+                          ("Motion (experimental)", self.motion_state_lbl), ("Last motion", self.motion_lbl),
                           ("Active mappings", self.active_lbl)):
             form.addRow(name, lbl)
         self.events = QListWidget()
@@ -129,7 +123,7 @@ class MainWindow(QMainWindow):
         self.table.itemDoubleClicked.connect(lambda _i: self._edit())
         add, edit, delete = QPushButton("Add mapping"), QPushButton("Edit"), QPushButton("Delete")
         test, rec = QPushButton("Test action now (3 s)"), QPushButton("Record static gesture...")
-        rec_motion = QPushButton("Record motion gesture...")
+        rec_motion = QPushButton("Record motion gesture (experimental)...")
         rec_motion.clicked.connect(self._record_motion)
         add.clicked.connect(self._add)
         edit.clicked.connect(self._edit)
@@ -156,7 +150,7 @@ class MainWindow(QMainWindow):
         w = QWidget()
         self.custom_list, self.motion_list = QListWidget(), QListWidget()
         rec, delete = QPushButton("Record static gesture..."), QPushButton("Delete selected")
-        rec_m, delete_m = QPushButton("Record motion gesture..."), QPushButton("Delete selected")
+        rec_m, delete_m = QPushButton("Record motion (experimental)..."), QPushButton("Delete selected")
         rec.clicked.connect(self._record)
         delete.clicked.connect(self._delete_custom)
         rec_m.clicked.connect(self._record_motion)
@@ -209,8 +203,7 @@ class MainWindow(QMainWindow):
         form.addRow("", restart)
         form.addRow("", self.landmarks)
         form.addRow("", save)
-        note = QLabel("Changes apply immediately but are only kept after 'Save'. See docs/CALIBRATION.md.\n"
-                      "Gaze / face signals are experimental and configured in settings.json (docs/GAZE_AND_FACE.md).")
+        note = QLabel("Changes apply immediately but are only kept after 'Save'. See docs/CALIBRATION.md.")
         note.setStyleSheet("color:gray;")
         lay = QVBoxLayout(w)
         lay.addLayout(form)

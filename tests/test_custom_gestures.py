@@ -57,7 +57,7 @@ def test_too_few_samples_rejected():
         rec.build("rock")
 
 
-@pytest.mark.parametrize("name", ["", "A", "Rock Sign", "1abc", "fist", "gaze_left", "x" * 40, "a-b"])
+@pytest.mark.parametrize("name", ["", "A", "Rock Sign", "1abc", "fist", "x" * 40, "a-b"])
 def test_invalid_names_rejected(name):
     rec = record(ROCK)
     with pytest.raises(ConfigError):

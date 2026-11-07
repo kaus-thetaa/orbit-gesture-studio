@@ -11,8 +11,6 @@
      "params": {}, "enabled": false, "cooldown_ms": 500},
     {"id": "overview-circle", "gesture": "circle_cw", "action": "window_overview", "mode": "trigger",
      "params": {}, "enabled": false, "cooldown_ms": 1500},
-    {"id": "mute-finger-on-lips", "gesture": "finger_on_lips", "action": "mute_audio", "mode": "hold",
-     "params": {}, "enabled": false, "cooldown_ms": 300},
     {"id": "reopen-tab-three", "gesture": "three_fingers", "action": "keyboard_shortcut", "mode": "trigger",
      "params": {"keys": "ctrl+shift+t"}, "enabled": false, "cooldown_ms": 1500}
   ]

@@ -1,9 +1,8 @@
 """Plain data types shared by the vision modules (no heavy dependencies)."""
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from typing import Tuple
 
 import numpy as np
 
@@ -38,11 +37,5 @@ class GesturePrediction:
 class GestureEvent:
     kind: str  # "pressed" | "released"
     name: str
-    source: str  # "hand" | "gaze" | "face"
+    source: str  # "hand" | "motion"
     timestamp: float
-
-
-@dataclass(frozen=True)
-class FaceObservation:
-    gaze_ratio: Optional[float]  # 0 = looking to the image-left, 1 = image-right (mirrored view)
-    blendshapes: dict

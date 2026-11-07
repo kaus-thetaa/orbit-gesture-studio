@@ -1,5 +1,8 @@
 # Motion gestures
 
+Motion recognition is experimental. It is covered by synthetic tests but has not been
+validated for accuracy with real users and webcams.
+
 Static poses ("two fingers up") are recognised frame by frame. **Motion gestures** are recognised from the
 *shape of a movement over about a second*: swipes, a wave, circles, or anything you record yourself.
 
@@ -49,8 +52,7 @@ Gesture Studio → **Record motion gesture...**
 
 Why many samples: DTW matching has no training step, so a handful of examples works, but the acceptance
 threshold is estimated from the spread of your examples; with <10 it is unreliable. The 4x augmentation helps with
-the *matching*, not with an unrepresentative set. If you find 20-30 isn't enough for a complex shape, the next step
-is a small sequence model trained on landmark trajectories, which would need hundreds of examples per class.
+the *matching*, not with an unrepresentative set.
 
 ## Tuning (Tuning tab; `motion.*` in settings.json)
 

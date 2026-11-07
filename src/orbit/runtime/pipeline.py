@@ -16,13 +16,11 @@ import numpy as np
 
 from ..settings import Settings
 from ..vision.draw import draw_hand, draw_label, draw_trail
-from ..vision.face import FaceSignalHub
 from ..vision.gestures import GestureRegistry
-from ..vision.lips import MouthTracker
 from ..vision.motion import MotionEngine, MotionResult, palm_point
 from ..vision.quality import check_hand_quality
 from ..vision.stabilizer import GestureStabilizer
-from ..vision.types import GestureEvent, GesturePrediction, HandObservation
+from ..vision.types import GestureEvent, HandObservation
 from .mapping_engine import Decision, MappingEngine
 
 log = logging.getLogger(__name__)
@@ -40,7 +38,6 @@ class FrameReport:
     fps: float = 0.0
     inference_ms: float = 0.0
     camera_status: str = "stopped"
-    gaze_ratio: Optional[float] = None
     motion: Optional[MotionResult] = None      # set only on the frame a movement finished
     motion_active: bool = False                # a movement is currently being tracked
 
@@ -48,16 +45,12 @@ class FrameReport:
 class Pipeline:
     def __init__(self, settings: Settings, camera: Any, tracker: Any, gestures: GestureRegistry,
                  stabilizer: GestureStabilizer, mapping_engine: MappingEngine,
-                 face_module: Any = None, face_hub: Optional[FaceSignalHub] = None,
-                 motion: Optional[MotionEngine] = None, lips: Optional[MouthTracker] = None,
-                 on_report: Optional[Callable[[FrameReport], None]] = None,
-                 on_activity: Optional[Callable[[List[GestureEvent], List[Decision]], None]] = None) -> None:
+                 motion: Optional[MotionEngine] = None,
+                 on_report: Optional[Callable[[FrameReport], None]] = None) -> None:
         self.settings, self.camera, self.tracker = settings, camera, tracker
         self.gestures, self.stabilizer, self.engine = gestures, stabilizer, mapping_engine
-        self.face_module, self.face_hub = face_module, face_hub
         self.motion = motion
-        self.lips = lips
-        self.on_report, self.on_activity = on_report, on_activity
+        self.on_report = on_report
         self.annotate = True
         self._thread: Optional[threading.Thread] = None
         self._stop = threading.Event()
@@ -78,25 +71,10 @@ class Pipeline:
             reject = check_hand_quality(hand, self.settings.recognition)
             if reject is None:
                 pred = self.gestures.classify(hand)
-                if self.lips is not None and pred is not None and pred.name == "one_finger":
-                    conf = self.lips.check(frame, hand, ts_ms)       # face model runs only for this pose
-                    if conf is not None and conf >= self.settings.lips.min_confidence:
-                        pred = GesturePrediction("finger_on_lips", conf, "contextual")
                 if pred is None:
                     reject = "unrecognized"
 
         events = self.stabilizer.update(pred.name if pred else None)
-        gaze_ratio = None
-        if self.face_hub is not None and self.face_module is not None and self.face_hub.wants_face:
-            try:
-                obs = self.face_module.process(frame, ts_ms)
-            except Exception:
-                log.exception("face processing failed")
-                obs = None
-            more, dbg = self.face_hub.update(obs)
-            events += more
-            gaze_ratio = dbg.get("gaze_ratio")
-
         motion_result: Optional[MotionResult] = None
         motion_active = False
         if self.motion is not None and self.settings.motion.enabled:
@@ -115,8 +93,6 @@ class Pipeline:
         for ev in events:
             decisions += self.engine.handle(ev)
             log.info("%s %s (%s)", ev.kind, ev.name, ev.source)
-        if (events or decisions) and self.on_activity:
-            self.on_activity(events, decisions)
 
         now = time.perf_counter()
         dt = now - self._last_frame_t if self._last_frame_t else 0.0
@@ -147,7 +123,7 @@ class Pipeline:
             frame=view, hand=hand, reject_reason=reject, prediction=pred,
             stable_gesture=self.stabilizer.active, events=events, decisions=decisions,
             fps=self._fps, inference_ms=(time.perf_counter() - t0) * 1000.0,
-            camera_status=getattr(self.camera, "status", "streaming"), gaze_ratio=gaze_ratio,
+            camera_status=getattr(self.camera, "status", "streaming"),
             motion=motion_result, motion_active=motion_active,
         )
 
@@ -159,14 +135,10 @@ class Pipeline:
             events = self.stabilizer.reset()
             if self.motion:
                 self.motion.reset()
-            if self.face_hub:
-                events += self.face_hub.reset()
             decisions: List[Decision] = []
             for ev in events:
                 decisions += self.engine.handle(ev)
             decisions += self.engine.release_all("camera lost")
-            if self.on_activity and (events or decisions):
-                self.on_activity(events, decisions)
         return FrameReport(camera_status=getattr(self.camera, "status", "unknown"), reject_reason="camera_lost")
 
     # ------------------------------------------------------------ thread

@@ -40,7 +40,7 @@ def _ensure_models(parent=None) -> bool:
     return True
 
 
-def run_gui(hud_only: bool = False) -> int:
+def run_gui() -> int:
     from PySide6.QtWidgets import QApplication, QMessageBox
 
     from ..runtime.app import OrbitRuntime
@@ -55,14 +55,6 @@ def run_gui(hud_only: bool = False) -> int:
     bridge = Bridge()
     bridge.attach(runtime)
     win = MainWindow(runtime, bridge)
-    hud = None
-    if runtime.settings.hud.enabled and runtime.settings.brain.enabled:
-        from .hud import Hud
-        hud = Hud(runtime.brain, runtime.settings.hud, open_studio=lambda: (win.show(), win.raise_()),
-                  quit_cb=app.quit, disarm_cb=lambda: runtime.safety.disarm("hud menu"))
-        runtime.brain.on_event = hud.notice.emit
-        runtime.on_ask_hotkey = hud.ask_requested.emit
-        app.setQuitOnLastWindowClosed(False)      # the orb keeps running when the Studio window is closed
     try:
         runtime.start()
     except Exception as exc:
@@ -71,10 +63,7 @@ def run_gui(hud_only: bool = False) -> int:
         return 2
     for w in runtime.warnings:
         win.log.appendPlainText("WARNING: " + w)
-    if hud is None or not hud_only:
-        win.show()
-    if hud is not None:
-        hud.show()
+    win.show()
     rc = app.exec()
     runtime.stop()
     return rc

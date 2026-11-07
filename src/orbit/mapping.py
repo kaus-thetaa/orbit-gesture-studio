@@ -76,8 +76,6 @@ DEFAULT_MAPPINGS: List[dict] = [
      "params": {}, "enabled": False, "cooldown_ms": 500},
     {"id": "snap-right-swipe-right", "gesture": "swipe_right", "action": "snap_window_right", "mode": "trigger",
      "params": {}, "enabled": False, "cooldown_ms": 500},
-    {"id": "mute-finger-on-lips", "gesture": "finger_on_lips", "action": "mute_audio", "mode": "hold",
-     "params": {}, "enabled": False, "cooldown_ms": 300},
     {"id": "log-fist", "gesture": "fist", "action": "log_message", "mode": "hold",
      "params": {"message": "fist held"}, "enabled": False, "cooldown_ms": 300},
 ]

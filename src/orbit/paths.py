@@ -51,7 +51,3 @@ def custom_gestures_path() -> Path:
 
 def custom_motions_path() -> Path:
     return config_dir() / "custom_motions.json"
-
-
-def ai_accounts_path() -> Path:
-    return config_dir() / "ai_accounts.json"

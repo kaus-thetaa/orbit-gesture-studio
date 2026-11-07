@@ -1,12 +1,14 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "orbit-gesture-studio"
 version = "0.4.0"
-description = "Webcam-powered, customizable gesture control for your desktop (hand gestures, optional gaze/face signals)."
+description = "Webcam-powered, customizable hand and motion gesture control for your desktop."
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
 dependencies = [
     "mediapipe>=0.10.30,<2",
@@ -14,8 +16,6 @@ dependencies = [
     "numpy>=1.26",
     "PySide6>=6.6",
     "pynput>=1.7.6",
-    "pulsectl>=23.5; sys_platform == 'linux'",
-    "openpyxl>=3.1",
 ]
 
 [project.optional-dependencies]

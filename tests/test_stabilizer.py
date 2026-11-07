@@ -1,13 +1,5 @@
 from orbit.settings import RecognitionSettings
-from orbit.vision.stabilizer import DwellDetector, GestureStabilizer
-
-
-class Clock:
-    def __init__(self):
-        self.t = 0.0
-
-    def __call__(self):
-        return self.t
+from orbit.vision.stabilizer import GestureStabilizer
 
 
 def kinds(events):
@@ -78,39 +70,3 @@ def test_settings_changes_apply_live():
     assert feed(s, ["a"] * 3) == []
     cfg.confirm_frames = 4
     assert feed(s, ["a"]) == [("pressed", "a")]
-
-
-def test_dwell_detector_dwell_and_cooldown():
-    c = Clock()
-    d = DwellDetector("gaze_left", "gaze", dwell_ms=500, release_ms=200, cooldown_ms=1000, clock=c)
-    # not long enough
-    for _ in range(4):
-        c.t += 0.1
-        assert d.update(True) == []
-    c.t += 0.2
-    assert kinds(d.update(True)) == [("pressed", "gaze_left")]
-    # still looking: no repeat
-    c.t += 0.2
-    assert d.update(True) == []
-    # look away -> released after release_ms
-    c.t += 0.1
-    assert d.update(False) == []
-    c.t += 0.3
-    assert kinds(d.update(False)) == [("released", "gaze_left")]
-    # immediately look again: cooldown (1.0 s from release) blocks for 0.8 s
-    for _ in range(8):
-        c.t += 0.1
-        assert d.update(True) == []
-    # cooldown has now elapsed and the dwell is long satisfied -> fires
-    c.t += 0.3
-    assert kinds(d.update(True)) == [("pressed", "gaze_left")]
-
-
-def test_dwell_detector_reading_motion_never_fires():
-    c = Clock()
-    d = DwellDetector("gaze_right", "gaze", dwell_ms=900, release_ms=200, cooldown_ms=0, clock=c)
-    fired = []
-    for i in range(100):  # glance right for 0.3s every second
-        c.t += 0.1
-        fired += d.update(i % 10 < 3)
-    assert fired == []

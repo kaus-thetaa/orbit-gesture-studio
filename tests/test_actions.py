@@ -146,7 +146,7 @@ def test_platform_override_and_validation():
 
 # ---------------------------------------------------------------- static safety scan
 def test_source_has_no_shell_or_eval():
-    """Mapping values must never reach a shell or an evaluator. Only devtools/runner.py may start a program."""
+    """Mappings never reach a shell, subprocess, or evaluator."""
     src = pathlib.Path(__file__).resolve().parents[1] / "src" / "orbit"
     banned = [r"\bos\.system\b", r"\bos\.popen\b", r"(?<![.\w])eval\s*\(", r"(?<![.\w])exec\s*\(", r"(?<![.\w])compile\s*\(",
               r"\bshell\s*=\s*True", r"\b__import__\s*\("]
@@ -154,16 +154,7 @@ def test_source_has_no_shell_or_eval():
     for path in src.rglob("*.py"):
         text = path.read_text(encoding="utf-8")
         rel = path.relative_to(src).as_posix()
-        pats = banned + ([] if rel == "devtools/runner.py" else [r"\bsubprocess\b"])
-        for pat in pats:
+        for pat in banned + [r"\bsubprocess\b"]:
             for m in re.finditer(pat, text):
                 offenders.append(f"{rel}:{text[: m.start()].count(chr(10)) + 1}: {pat}")
     assert offenders == []
-    runner = (src / "devtools" / "runner.py").read_text(encoding="utf-8")
-    import ast
-    calls = [n for n in ast.walk(ast.parse(runner)) if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
-             and isinstance(n.func.value, ast.Name) and n.func.value.id == "subprocess" and n.func.attr in ("run", "Popen")]
-    assert len(calls) == 3                                                   # _exec, editor launcher, and Chrome launcher
-    for c in calls:                                                          # both explicitly shell=False
-        kw = {k.arg: k.value for k in c.keywords}
-        assert isinstance(kw.get("shell"), ast.Constant) and kw["shell"].value is False

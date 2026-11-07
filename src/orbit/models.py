@@ -22,10 +22,6 @@ MODELS = {
         "file": "hand_landmarker.task",
         "url": f"{_BASE}/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task",
     },
-    "face_landmarker": {
-        "file": "face_landmarker.task",
-        "url": f"{_BASE}/face_landmarker/face_landmarker/float16/latest/face_landmarker.task",
-    },
 }
 _MIN_BYTES = 500_000  # anything smaller is an error page, not a model
 

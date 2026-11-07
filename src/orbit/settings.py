@@ -69,24 +69,6 @@ class SafetySettings:
 
 
 @dataclass
-class GazeSettings:
-    enabled: bool = _f(False, doc="EXPERIMENTAL gaze signals (needs face model)")
-    left_threshold: float = _f(0.40, 0.05, 0.5, "Iris ratio at or below this = looking left")
-    right_threshold: float = _f(0.60, 0.5, 0.95, "Iris ratio at or above this = looking right")
-    smoothing_frames: int = _f(5, 1, 30, "Moving-average window for the iris ratio")
-    dwell_ms: int = _f(900, 200, 5000, "Look duration needed before the signal fires")
-    release_ms: int = _f(300, 50, 3000, "Time away from the region before the signal releases")
-    cooldown_ms: int = _f(1500, 0, 10000, "Minimum gap between firings")
-
-
-@dataclass
-class FaceSettings:
-    enabled: bool = _f(False, doc="EXPERIMENTAL face-blendshape signals (needs face model)")
-    # Each signal: {"name": "jaw_open", "blendshape": "jawOpen", "threshold": 0.6, "dwell_ms": 400}
-    signals: list = field(default_factory=list)
-
-
-@dataclass
 class MotionSettings:
     enabled: bool = _f(True, doc="Detect movement gestures (swipes, wave, circles, custom motions)")
     require_pose: str = _f("open_palm", doc="Static pose the hand must hold while moving ('' = any hand)")
@@ -111,66 +93,6 @@ class MotionSettings:
 
 
 @dataclass
-class BrainSettings:
-    enabled: bool = _f(True, doc="Enable the assistant (Gemini online / Ollama offline, shared memory)")
-    prefer: str = _f("auto", doc="auto | gemini | ollama")
-    gemini_model: str = _f("gemini-3.1-flash-lite", doc="Gemini model id (names change often: `orbit brain doctor` lists yours)")
-    gemini_base_url: str = _f("https://generativelanguage.googleapis.com")
-    gemini_daily_requests: int = _f(300, 0, 1_000_000, "Your own daily request budget for Gemini (0 = unlimited)")
-    switch_at_fraction: float = _f(0.9, 0.1, 1.0, "Switch to the local model after this share of the budget")
-    ollama_host: str = _f("http://127.0.0.1:11434")
-    ollama_model: str = _f("llama3.2:3b", doc="Local model; if not installed the smallest installed one is used")
-    ollama_keep_alive: str = _f("30m", doc="How long Ollama keeps the model in memory (fast repeat answers)")
-    hedge_after_ms: int = _f(1500, 0, 20000, "If the first provider is slower than this, also ask the other (0 = off)")
-    cloud_timeout_s: float = _f(6.0, 1.0, 60.0)
-    local_timeout_s: float = _f(25.0, 2.0, 120.0)
-    max_words: int = _f(14, 1, 60, "Answers are cut to this many words")
-    max_output_tokens: int = _f(60, 16, 1024)
-    context_chars: int = _f(2400, 400, 20000, "Memory/document text sent with each question")
-    share_memory_with_cloud: bool = _f(True, doc="Send non-private remembered facts to Gemini")
-    warm_local_model: bool = _f(True, doc="Pre-load the Ollama model at startup for snappy first answers")
-    # Each: {"name": "mess_menu", "kind": "menu", "url": "https://...", "refresh_hours": 6}
-    routines: list = field(default_factory=list)
-
-
-@dataclass
-class HudSettings:
-    enabled: bool = _f(True, doc="Show the small always-on-top orb")
-    corner: str = _f("bottom-right", doc="bottom-right | bottom-left | top-right | top-left")
-    margin: int = _f(18, 0, 400)
-    orb_size: int = _f(26, 14, 80)
-    idle_opacity: float = _f(0.45, 0.1, 1.0)
-    answer_seconds: float = _f(7.0, 1.0, 60.0)
-    ask_hotkey: str = _f("<ctrl>+<alt>+<space>", doc="Global hotkey to open the ask box (X11 only)")
-
-
-@dataclass
-class LipsSettings:
-    enabled: bool = _f(True, doc="Finger-on-lips gesture (needs the face model; disabled automatically if missing)")
-    max_distance: float = _f(1.0, 0.3, 3.0, "Fingertip-to-mouth distance, in mouth-widths, that still counts")
-    min_confidence: float = _f(0.5, 0.2, 0.99)
-    check_interval_ms: int = _f(70, 20, 500, "Minimum gap between face checks (saves CPU)")
-    face_cache_ms: int = _f(400, 50, 2000, "Reuse the last mouth position for this long")
-
-
-@dataclass
-class DevSettings:
-    enabled: bool = _f(True, doc="Developer helpers: open a project in VS Code, git status, commit+push with confirmation")
-    roots: list = field(default_factory=lambda: ["~/Desktop", "~/Projects"])   # where "my folder called X" is searched (direct children only)
-    projects: dict = field(default_factory=dict)                                # explicit name -> path
-    editor: str = _f("code", doc="code | codium | code-insiders")
-    max_commit_groups: int = _f(6, 1, 12, "Changes are split into at most this many logical commits")
-    confirm_seconds: int = _f(90, 10, 600, "How long a 'say yes to proceed' prompt stays valid")
-
-
-@dataclass
-class TrackerSettings:
-    enabled: bool = _f(True, doc="Single-spreadsheet tracker (interviews, ...)")
-    path: str = _f("~/Documents/orbit_tracker.xlsx", doc="THE one workbook; every table is a sheet in it")
-    local_only_extraction: bool = _f(True, doc="Free-text -> row extraction uses only the local model (nothing sent to Gemini)")
-
-
-@dataclass
 class UISettings:
     show_landmarks: bool = _f(True)
     preview_fps: int = _f(20, 5, 60)
@@ -181,14 +103,7 @@ class Settings:
     camera: CameraSettings = field(default_factory=CameraSettings)
     recognition: RecognitionSettings = field(default_factory=RecognitionSettings)
     safety: SafetySettings = field(default_factory=SafetySettings)
-    gaze: GazeSettings = field(default_factory=GazeSettings)
-    face: FaceSettings = field(default_factory=FaceSettings)
     motion: MotionSettings = field(default_factory=MotionSettings)
-    brain: BrainSettings = field(default_factory=BrainSettings)
-    hud: HudSettings = field(default_factory=HudSettings)
-    lips: LipsSettings = field(default_factory=LipsSettings)
-    dev: DevSettings = field(default_factory=DevSettings)
-    tracker: TrackerSettings = field(default_factory=TrackerSettings)
     ui: UISettings = field(default_factory=UISettings)
 
     # ------------------------------------------------------------------ io

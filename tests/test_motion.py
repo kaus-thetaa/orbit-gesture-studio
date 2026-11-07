@@ -332,7 +332,7 @@ def test_more_samples_do_not_hurt_and_few_are_refused():
         rec.build("zigzag")
 
 
-@pytest.mark.parametrize("name", ["", "Z", "Zig Zag", "1zig", "swipe_left", "circle_cw", "gaze_x", "x" * 40])
+@pytest.mark.parametrize("name", ["", "Z", "Zig Zag", "1zig", "swipe_left", "circle_cw", "x" * 40])
 def test_bad_motion_names(name):
     rec = MotionRecorder(MotionSettings())
     for seg in performances(zigzag, 8):

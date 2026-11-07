@@ -55,51 +55,6 @@ def test_window_shows_disarmed_and_table(env):
     rt, bridge, win = env
     assert "DISARMED" in win.pill.text()
     assert win.table.rowCount() == len(rt.store.all()) >= 1
-    assert len(win.ai_hub.cards) == 3
-
-
-def test_ai_hub_tracks_input_and_expired_cooldown(env):
-    _rt, _bridge, win = env
-    hub = win.ai_hub
-    account = hub.store.accounts[0]
-    hub.cards[0]._set_status("input_needed")
-    assert account.status == "input_needed"
-    assert hub.cards[0].status.text() == "NEEDS YOUR INPUT"
-
-    hub.store.start_cooldown(account.id, 0, 1)
-    account.cooldown_until -= 61
-    notified = []
-    hub.notification.connect(notified.append)
-    hub._tick()
-    assert account.status == "available"
-    assert notified == [account.name]
-    assert "timer ended" in hub.notice.text()
-
-
-def test_ai_hub_uses_only_black_red_yellow_and_green(env):
-    import re
-
-    hub = env[2].ai_hub
-    colors = set(re.findall(r"#[0-9a-fA-F]{6}\b", hub.styleSheet()))
-
-    assert colors == {"#000000", "#ff0000", "#ffff00", "#00ff00"}
-
-
-def test_ai_hub_opens_chat_in_the_selected_chrome_profile(env, monkeypatch):
-    hub = env[2].ai_hub
-    store = hub.store
-    account = store.accounts[0]
-    store.update(account.id, "Claude", "Claude work", "https://claude.ai/chat/abc", "Profile 2")
-    card = hub.cards[0]
-    launched = []
-    monkeypatch.setattr(
-        "orbit.gui.ai_hub.open_ai_chat",
-        lambda profile, url: launched.append((profile, url)),
-    )
-
-    card._open_chat(account)
-
-    assert launched == [("Profile 2", "https://claude.ai/chat/abc")]
 
 
 def test_arm_disarm_and_live_labels(env):

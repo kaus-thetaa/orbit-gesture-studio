@@ -4,8 +4,6 @@ Activation needs `confirm_frames` consecutive identical predictions; release nee
 `release_frames` consecutive frames that do not match the active gesture (so a dropped
 detection or a one-frame flicker does not end a hold). Frame counts are read from the
 settings object on every update, so GUI changes apply live.
-
-DwellDetector is the time-based equivalent used for gaze / face signals.
 """
 from __future__ import annotations
 
@@ -58,45 +56,3 @@ class GestureStabilizer:
             events.append(GestureEvent("released", self.active, self.source, self.clock()))
         self.active, self._cand, self._cand_n, self._miss = None, None, 0, 0
         return events
-
-
-class DwellDetector:
-    """Time-based pressed/released for a boolean signal, with dwell and cooldown."""
-
-    def __init__(self, name: str, source: str, dwell_ms: int, release_ms: int, cooldown_ms: int,
-                 clock: Callable[[], float] = time.monotonic) -> None:
-        self.name, self.source = name, source
-        self.dwell, self.release, self.cooldown = dwell_ms / 1000.0, release_ms / 1000.0, cooldown_ms / 1000.0
-        self.clock = clock
-        self.pressed = False
-        self._since: Optional[float] = None
-        self._last_active = 0.0
-        self._cooldown_until = 0.0
-
-    def update(self, active: bool) -> List[GestureEvent]:
-        now = self.clock()
-        events: List[GestureEvent] = []
-        if active:
-            self._last_active = now
-            if self._since is None:
-                self._since = now
-            if not self.pressed and now - self._since >= self.dwell and now >= self._cooldown_until:
-                self.pressed = True
-                events.append(GestureEvent("pressed", self.name, self.source, now))
-        else:
-            if self.pressed:
-                if now - self._last_active >= self.release:
-                    self.pressed = False
-                    self._since = None
-                    self._cooldown_until = now + self.cooldown
-                    events.append(GestureEvent("released", self.name, self.source, now))
-            else:
-                self._since = None
-        return events
-
-    def reset(self) -> List[GestureEvent]:
-        ev = []
-        if self.pressed:
-            ev.append(GestureEvent("released", self.name, self.source, self.clock()))
-        self.pressed, self._since = False, None
-        return ev
